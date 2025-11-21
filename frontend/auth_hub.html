@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>AI Interview Platform – Auth</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Configure Tailwind to use Inter font and custom dashboard colors
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'primary': '#6366f1',
+            'primary-dark': '#4f46e5',
+            'accent': '#ec4899',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(3deg); }
+    }
+    @keyframes gradient-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .animated-bg {
+      background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #4facfe);
+      background-size: 400% 400%;
+      animation: gradient-shift 15s ease infinite;
+    }
+    .glass {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .floating-shape {
+      animation: float 6s ease-in-out infinite;
+    }
+    .input-focus {
+      transition: all 0.3s ease;
+    }
+    .input-focus:focus {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #6366f1, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    /* Style for OTP input boxes */
+    .otp-input {
+      width: 40px;
+      height: 60px;
+      text-align: center;
+      font-size: 1.5rem;
+      border: 2px solid #e5e7eb;
+      border-radius: 0.75rem;
+      transition: all 0.3s;
+    }
+    .otp-input:focus {
+      border-color: #6366f1;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+  </style>
+</head>
+<!-- Body layout: flex-col, push to end (justify-end), center content horizontally (items-center) -->
+<body class="animated-bg min-h-screen flex flex-col items-center justify-end p-4 relative overflow-hidden pb-16">
+  
+  <!-- Floating decorative shapes -->
+  <div class="absolute inset-0 overflow-hidden pointer-events-none">
+    <div class="floating-shape absolute top-20 left-10 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
+    <div class="floating-shape absolute bottom-32 right-20 w-40 h-40 bg-white/10 rounded-full blur-2xl" style="animation-delay: 2s;"></div>
+    <div class="floating-shape absolute top-1/2 left-1/3 w-24 h-24 bg-white/10 rounded-full blur-xl" style="animation-delay: 4s;"></div>
+  </div>
+
+  <!-- Content Container: Centered horizontally with mx-auto -->
+  <div class="w-full max-w-md relative z-10 mx-auto">
+    
+    <!-- Logo & Title (Content positioned above the card) -->
+    <div class="text-center mb-8">
+      <!-- Logo was removed per user request -->
+      <h1 class="text-4xl font-extrabold text-white mb-2 tracking-tight">AI Interview Platform</h1>
+      <p class="text-white/80 text-sm">Next-generation talent screening powered by AI</p>
+    </div>
+
+    <!-- Auth Card -->
+    <div class="glass rounded-3xl shadow-2xl p-8 transform transition-all duration-300 hover:shadow-purple-500/20" id="auth-card">
+      
+      <!-- Toast Container -->
+      <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+
+      <!-- Login View (Now OTP Request) -->
+      <div id="login-view">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+          <span class="w-2 h-8 bg-gradient-to-b from-primary to-accent rounded-full mr-3"></span>
+          Sign In
+        </h2>
+        
+        <div class="space-y-4">
+          <div class="relative">
+            <input id="login-email" placeholder="Email Address" type="email" 
+              class="input-focus w-full p-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-0 outline-none transition-all"/>
+            <svg class="absolute right-4 top-4 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"/>
+            </svg>
+          </div>
+          
+          <div class="relative">
+            <input id="login-password" placeholder="Password" type="password" 
+              class="input-focus w-full p-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-0 outline-none transition-all"/>
+            <svg class="absolute right-4 top-4 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+          </div>
+        </div>
+
+        <button id="send-otp-btn" class="w-full mt-6 py-4 bg-gradient-to-r from-primary to-primary-dark text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200">
+          <span class="flex items-center justify-center">
+            <i class="fas fa-sign-in-alt mr-2"></i>
+            Login
+          </span>
+        </button>
+        
+        <div class="mt-6 text-center">
+          <p class="text-gray-600 text-sm">
+            Don't have an account? 
+            <a class="text-primary font-semibold hover:text-primary-dark cursor-pointer transition-colors ml-1" id="to-register">Create one</a>
+          </p>
+        </div>
+      </div>
+
+      <!-- Register View -->
+      <div id="register-view" style="display:none;">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+          <span class="w-2 h-8 bg-gradient-to-b from-accent to-primary rounded-full mr-3"></span>
+          Create Account
+        </h2>
+        
+        <div class="space-y-4">
+          <div class="relative">
+            <input id="reg-name" placeholder="Full Name" type="text" 
+              class="input-focus w-full p-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-accent focus:ring-0 outline-none transition-all"/>
+            <svg class="absolute right-4 top-4 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+          </div>
+          
+          <div class="relative">
+            <input id="reg-email" placeholder="Email Address" type="email" 
+              class="input-focus w-full p-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-accent focus:ring-0 outline-none transition-all"/>
+            <svg class="absolute right-4 top-4 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          
+          <div class="relative">
+            <input id="reg-password" placeholder="Password (min 6 chars)" type="password" 
+              class="input-focus w-full p-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-accent focus:ring-0 outline-none transition-all"/>
+            <svg class="absolute right-4 top-4 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+            </svg>
+          </div>
+          
+          <!-- Organization Input -->
+          <div class="relative">
+            <input id="reg-organization" placeholder="Organization Name (Optional)" type="text" 
+              class="input-focus w-full p-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-accent focus:ring-0 outline-none transition-all"/>
+            <svg class="absolute right-4 top-4 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m-3-3h6"/>
+            </svg>
+          </div>
+        </div>
+
+        <button id="register-btn" class="w-full mt-6 py-4 bg-gradient-to-r from-accent to-pink-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200">
+          <span class="flex items-center justify-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+            </svg>
+            Create Account
+          </span>
+        </button>
+        
+        <div class="mt-6 text-center">
+          <p class="text-gray-600 text-sm">
+            Already have an account? 
+            <a class="text-primary font-semibold hover:text-primary-dark cursor-pointer transition-colors ml-1" id="to-login">Sign in</a>
+          </p>
+        </div>
+      </div>
+      
+      <!-- OTP Verification View -->
+      <div id="otp-view" style="display:none;">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2 flex items-center">
+          <span class="w-2 h-8 bg-gradient-to-b from-primary to-accent rounded-full mr-3"></span>
+          Verify OTP
+        </h2>
+        <p class="text-sm text-gray-600 mb-6">
+            A 6-digit code has been sent to 
+            <strong id="otp-target-email" class="font-semibold text-primary"></strong>.
+        </p>
+
+        <div class="flex justify-between space-x-2 mb-6" id="otp-input-container">
+          <!-- OTP inputs will be dynamically generated by JS for better UX -->
+        </div>
+
+        <button id="verify-otp-btn" class="w-full mt-4 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200">
+          <span class="flex items-center justify-center">
+            <i class="fas fa-check-circle mr-2"></i>
+            Verify Code
+          </span>
+        </button>
+        
+        <div class="mt-4 text-center">
+            <button id="resend-otp-btn" class="text-sm text-gray-500 hover:text-primary font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                Resend Code (in <span id="resend-timer">60</span>s)
+            </button>
+        </div>
+
+        <div class="mt-6 text-center border-t border-gray-200 pt-4">
+            <a class="text-primary font-semibold hover:text-primary-dark cursor-pointer transition-colors ml-1" id="back-to-login">Go back to login</a>
+        </div>
+      </div>
+
+      <!-- Dev Info REMOVED -->
+      <!-- <p class="text-xs text-gray-400 text-center mt-6 pt-6 border-t border-gray-200"> ... </p> -->
+    </div>
+  </div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+let storedEmail = ''; // To hold the email temporarily for OTP verification/resend
+let resendTimerInterval = null;
+
+// --- Custom Toast Functionality ---
+function showToast(message, type = 'error') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  
+  let bgColor, icon;
+  if (type === 'error') {
+    bgColor = 'bg-gradient-to-r from-red-500 to-red-600';
+    icon = '⚠️';
+  } else if (type === 'success') {
+    bgColor = 'bg-gradient-to-r from-green-500 to-emerald-600';
+    icon = '✓';
+  } else {
+    bgColor = 'bg-gradient-to-r from-blue-500 to-indigo-600';
+    icon = 'ℹ️';
+  }
+
+  toast.className = `p-4 mb-2 rounded-xl text-white shadow-2xl transition-all duration-500 transform translate-x-full opacity-0 ${bgColor}`;
+  toast.style.maxWidth = '320px';
+  toast.innerHTML = `<div class="flex items-center"><span class="text-2xl mr-3">${icon}</span><span class="font-semibold">${message}</span></div>`;
+  
+  container.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.classList.remove('translate-x-full', 'opacity-0');
+    toast.classList.add('translate-x-0', 'opacity-100');
+  }, 10);
+
+  setTimeout(() => {
+    toast.classList.remove('translate-x-0', 'opacity-100');
+    toast.classList.add('translate-x-full', 'opacity-0');
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, 4000);
+}
+
+// --- View Switching ---
+function show(view){
+  document.getElementById('login-view').style.display = view==='login' ? 'block' : 'none';
+  document.getElementById('register-view').style.display = view==='register' ? 'block' : 'none';
+  document.getElementById('otp-view').style.display = view==='otp' ? 'block' : 'none';
+}
+document.getElementById('to-register').addEventListener('click', ()=> show('register'));
+document.getElementById('to-login').addEventListener('click', ()=> show('login'));
+document.getElementById('back-to-login').addEventListener('click', ()=> show('login'));
+
+
+// --- OTP Input Generation & UX ---
+function setupOtpInputs() {
+    const container = document.getElementById('otp-input-container');
+    container.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 1;
+        input.className = 'otp-input input-focus';
+        input.setAttribute('data-index', i);
+        container.appendChild(input);
+    }
+    
+    // Add event listeners for navigation and auto-focus
+    container.addEventListener('input', (e) => {
+        const target = e.target;
+        if (target.value.length === 1 && target.nextElementSibling) {
+            target.nextElementSibling.focus();
+        }
+    });
+
+    container.addEventListener('keydown', (e) => {
+        const target = e.target;
+        if (e.key === 'Backspace' && target.value.length === 0 && target.previousElementSibling) {
+            target.previousElementSibling.focus();
+        } else if (e.key === 'Enter') {
+            verifyOtp();
+        }
+    });
+    
+    // Auto-focus on the first input
+    const firstInput = container.querySelector('input');
+    if (firstInput) {
+        firstInput.focus();
+    }
+}
+
+function getOtp() {
+    return Array.from(document.querySelectorAll('#otp-input-container input'))
+        .map(input => input.value)
+        .join('');
+}
+
+// --- Resend Timer Logic ---
+function startResendTimer() {
+    clearInterval(resendTimerInterval);
+    let timeLeft = 60;
+    const btn = document.getElementById('resend-otp-btn');
+    const timerEl = document.getElementById('resend-timer');
+    
+    btn.disabled = true;
+    timerEl.textContent = timeLeft;
+
+    resendTimerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if (timeLeft <= 0) {
+            clearInterval(resendTimerInterval);
+            btn.disabled = false;
+            timerEl.textContent = '0';
+            btn.textContent = 'Resend Code';
+        }
+    }, 1000);
+}
+
+
+// --- Login Flow: Step 1 (Send OTP) ---
+async function sendOtp(){
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if(!email||!password){ showToast('Please fill in both email and password.'); return; }
+  
+  const btn = document.getElementById('send-otp-btn');
+  btn.innerHTML = '<span class="flex items-center justify-center"><svg class="animate-spin w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Sending code...</span>';
+  btn.disabled = true;
+
+  try {
+    // We send data as JSON to the new send_otp endpoint
+    const res = await fetch(API_BASE + '/auth/send_otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    
+    if(!res.ok){ 
+      let errorDetail = await res.text().then(text => {
+          try {
+              const json = JSON.parse(text);
+              return json.detail || text;
+          } catch {
+              return text;
+          }
+      }).catch(() => `HTTP ${res.status}`);
+      
+      showToast('Verification failed: ' + errorDetail, 'error'); 
+      return; 
+    }
+    
+    showToast('Verification code sent to your email!', 'success');
+    storedEmail = email;
+    
+    // Switch to OTP view and start timer
+    document.getElementById('otp-target-email').textContent = email;
+    setupOtpInputs();
+    startResendTimer();
+    show('otp');
+
+  } catch (e) {
+    console.error('Network or Fetch Error:', e);
+    showToast('Network error. Check backend status (localhost:8000).', 'error');
+  } finally {
+    // FIX: Restore the button text to "Login"
+    btn.innerHTML = '<span class="flex items-center justify-center"><i class="fas fa-sign-in-alt mr-2"></i>Login</span>';
+    btn.disabled = false;
+  }
+}
+
+// --- Login Flow: Step 2 (Verify OTP) ---
+async function verifyOtp() {
+    const otp = getOtp();
+    if (otp.length !== 6) {
+        showToast('Please enter the full 6-digit code.', 'error');
+        return;
+    }
+
+    const btn = document.getElementById('verify-otp-btn');
+    btn.innerHTML = '<span class="flex items-center justify-center"><svg class="animate-spin w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Verifying...</span>';
+    btn.disabled = true;
+    
+    try {
+        const res = await fetch(API_BASE + '/auth/verify_otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: storedEmail, otp: otp })
+        });
+
+        if (!res.ok) {
+             let errorDetail = await res.text().then(text => {
+                try {
+                    const json = JSON.parse(text);
+                    return json.detail || text;
+                } catch {
+                    return text;
+                }
+            }).catch(() => `HTTP ${res.status}`);
+
+            showToast('OTP verification failed: ' + errorDetail, 'error');
+            return;
+        }
+
+        const json = await res.json();
+        localStorage.setItem('ai_token', json.access_token);
+        clearInterval(resendTimerInterval);
+        showToast('Login successful!', 'success');
+        setTimeout(() => window.location.href = 'dashboard.html', 800);
+
+    } catch (e) {
+        console.error('Network or Fetch Error:', e);
+        showToast('Network error during verification.', 'error');
+    } finally {
+        btn.innerHTML = '<span class="flex items-center justify-center"><i class="fas fa-check-circle mr-2"></i>Verify Code</span>';
+        btn.disabled = false;
+    }
+}
+
+// --- Register Handler ---
+async function register(){
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const organization = document.getElementById('reg-organization').value.trim();
+  
+  const role = 'interviewer'; 
+
+  if(!name||!email||!password){ showToast('Please fill in all required fields.', 'error'); return; }
+  if(password.length < 6){ showToast('Password must be at least 6 characters.', 'error'); return; }
+  
+  const btn = document.getElementById('register-btn');
+  btn.innerHTML = '<span class="flex items-center justify-center"><svg class="animate-spin w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Creating account...</span>';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(API_BASE + '/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password, role, organization }) 
+    });
+    
+    if(!res.ok){ 
+      const errorText = await res.text().then(text => {
+          try {
+              const json = JSON.parse(text);
+              return json.detail || text;
+          } catch {
+              return text;
+          }
+      }).catch(() => `HTTP ${res.status}`);
+      showToast('Registration failed: ' + errorText, 'error'); 
+      return; 
+    }
+    
+    showToast('Account created successfully! Please sign in.', 'success');
+    document.getElementById('reg-name').value = '';
+    document.getElementById('reg-email').value = '';
+    document.getElementById('reg-password').value = '';
+    document.getElementById('reg-organization').value = '';
+    show('login');
+    
+  } catch (e) {
+    console.error('Network or Fetch Error:', e);
+    showToast('Network error. Check backend status (localhost:8000).', 'error');
+  } finally {
+    btn.innerHTML = '<span class="flex items-center justify-center"><svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>Create Account</span>';
+    btn.disabled = false;
+  }
+}
+
+// --- Event Listeners ---
+document.getElementById('send-otp-btn').addEventListener('click', sendOtp);
+document.getElementById('verify-otp-btn').addEventListener('click', verifyOtp);
+document.getElementById('resend-otp-btn').addEventListener('click', sendOtp);
+document.getElementById('register-btn').addEventListener('click', register);
+
+// Allow pressing Enter key to submit forms
+document.getElementById('login-email').addEventListener('keypress', (e) => e.key === 'Enter' && sendOtp());
+document.getElementById('login-password').addEventListener('keypress', (e) => e.key === 'Enter' && sendOtp());
+document.getElementById('reg-password').addEventListener('keypress', (e) => e.key === 'Enter' && register());
+document.getElementById('reg-organization').addEventListener('keypress', (e) => e.key === 'Enter' && register());
+
+// Initial setup to make sure OTP view starts blank
+document.addEventListener('DOMContentLoaded', () => {
+    // If a token exists, redirect immediately (for development quick refresh)
+    if (localStorage.getItem('ai_token')) {
+         // window.location.href = 'dashboard.html'; // Removed during active dev for convenience
+    }
+});
+
+</script>
+</body>
+</html>

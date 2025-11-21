@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>AI Interview Platform – Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'primary': '#6366f1',
+            'primary-dark': '#4f46e5',
+            'accent': '#ec4899',
+            'sidebar-bg': '#1e1b4b',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmer {
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+    .animate-slide-in {
+      animation: slideIn 0.4s ease-out;
+    }
+    .card-hover {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.1), 0 10px 10px -5px rgba(99, 102, 241, 0.04);
+    }
+    .nav-link {
+      position: relative;
+      overflow: hidden;
+    }
+    .nav-link::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 3px;
+      background: linear-gradient(to bottom, #ec4899, #6366f1);
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+    }
+    .nav-link.active::before,
+    .nav-link:hover::before {
+      transform: translateX(0);
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 1000px 100%;
+      animation: shimmer 2s infinite;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 via-indigo-50/30 to-pink-50/20 min-h-screen">
+  <div class="flex h-screen overflow-hidden">
+    
+    <!-- Sidebar Navigation -->
+    <nav class="w-72 bg-gradient-to-b from-sidebar-bg to-indigo-950 text-white flex flex-col shadow-2xl hidden lg:flex relative">
+      <div class="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10 pointer-events-none"></div>
+            
+      <div class="relative z-10 p-6">
+        <h2 class="text-2xl font-extrabold text-white mb-2 flex items-center">
+          <div class="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center mr-3 shadow-lg">
+            <i class="fas fa-brain text-white text-xl"></i>
+          </div>
+          <span class="gradient-text">AI Interview</span>
+        </h2>
+        <p class="text-indigo-300 text-xs pl-13">Intelligent Hiring Platform</p>
+      </div>
+            
+      <div class="space-y-2 flex-grow px-4 relative z-10">
+        <button data-view="sessions" class="nav-link active w-full flex items-center p-4 rounded-xl transition-all duration-200 hover:bg-white/10 bg-white/20 font-semibold text-left group">
+          <div class="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+            <i class="fas fa-table-list"></i>
+          </div>
+          <span>My Sessions</span>
+        </button>
+                
+        <button data-view="create" class="nav-link w-full flex items-center p-4 rounded-xl transition-all duration-200 hover:bg-white/10 text-left group">
+          <div class="w-10 h-10 bg-gradient-to-br from-accent to-pink-600 rounded-lg flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
+            <i class="fas fa-plus-circle"></i>
+          </div>
+          <span>Create Session</span>
+        </button>
+      </div>
+            
+      <div class="mt-auto p-4 border-t border-indigo-800/50 relative z-10">
+        <button id="logout-btn" class="w-full flex items-center justify-center py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-xl hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-red-500/50">
+          <i class="fas fa-sign-out-alt mr-2"></i> Logout
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto p-6 md:p-10">
+            
+      <!-- Mobile Header -->
+      <header class="flex justify-between items-center pb-6 mb-8 border-b-2 border-gradient-to-r from-primary to-accent lg:hidden">
+        <h1 class="text-2xl font-extrabold text-gray-800">
+          <i class="fas fa-brain text-primary mr-2"></i> Dashboard
+        </h1>
+        <button id="logout-btn-mobile" class="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-lg hover:shadow-lg transition">
+          Logout
+        </button>
+      </header>
+
+      <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+
+      <!-- VIEW 1: Sessions List -->
+      <div id="view-sessions" class="view-content animate-slide-in">
+        <div class="mb-8">
+          <h2 class="text-4xl font-bold text-gray-800 mb-2">Interview Sessions</h2>
+          <p class="text-gray-600">Manage and monitor your active interview campaigns</p>
+        </div>
+                
+        <div class="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50">
+          <div id="sessions-list-container" class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            <div id="loading-sessions" class="col-span-full">
+              <div class="skeleton h-48 rounded-2xl"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: Create Session -->
+      <div id="view-create" class="view-content hidden">
+        <button class="mb-6 text-primary hover:text-primary-dark font-semibold transition flex items-center group" onclick="document.querySelector('[data-view=sessions]').click()">
+          <i class="fas fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> Back to Sessions
+        </button>
+                
+        <div class="max-w-5xl mx-auto">
+          <div class="mb-8">
+            <h2 class="text-4xl font-bold text-gray-800 mb-2">Create New Session</h2>
+            <p class="text-gray-600">Set up your interview questions and invite participants</p>
+          </div>
+                    
+          <div class="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50">
+                        
+            <div class="grid md:grid-cols-2 gap-8 mb-8">
+              <!-- Core Details -->
+              <div class="space-y-4">
+                <div>
+                  <div class="flex items-center mb-4">
+                    <div class="w-8 h-8 bg-gradient-to-br from-primary to-primary-dark rounded-lg flex items-center justify-center mr-3">
+                      <span class="text-white font-bold">1</span>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800">Core Details</h3>
+                  </div>
+                                    
+                  <input id="s-title" placeholder="Job Title (e.g., Senior Software Engineer)" 
+                    class="w-full p-4 mb-4 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-0 outline-none transition-all hover:border-gray-300"/>
+                                    
+                  <textarea id="s-desc" placeholder="Job description (optional)" rows="3" 
+                    class="w-full p-4 mb-4 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-0 outline-none transition-all hover:border-gray-300"></textarea>
+                                    
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="text-xs font-medium text-gray-600 block mb-2">End Date</label>
+                      <input id="s-enddate" type="date"
+                        class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-0 outline-none transition-all"/>
+                    </div>
+                    <div>
+                      <label class="text-xs font-medium text-gray-600 block mb-2">Duration (mins)</label>
+                      <input id="s-time" type="number" placeholder="60" value="60"
+                        class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-0 outline-none transition-all"/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Initial Invites -->
+              <div>
+                <div class="flex items-center mb-4">
+                  <div class="w-8 h-8 bg-gradient-to-br from-accent to-pink-600 rounded-lg flex items-center justify-center mr-3">
+                    <span class="text-white font-bold">2</span>
+                  </div>
+                  <h3 class="text-xl font-bold text-gray-800">Initial Invites</h3>
+                </div>
+                                
+                <p class="text-sm text-gray-600 mb-4">Enter participant emails (one per line)</p>
+                <textarea id="initial-invite-emails" placeholder="alice@example.com&#10;bob@example.com" rows="11"
+                   class="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-accent focus:ring-0 outline-none transition-all hover:border-gray-300 font-mono text-sm"></textarea>
+              </div>
+            </div>
+                        
+            <!-- Questions Section -->
+            <div class="border-t-2 border-gray-100 pt-8">
+              <div class="flex items-center mb-4">
+                <div class="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-3">
+                  <span class="text-white font-bold">3</span>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800">Interview Questions</h3>
+              </div>
+                            
+              <div id="questions-list" class="mb-4 space-y-3 p-6 bg-gradient-to-br from-gray-50 to-indigo-50/30 rounded-2xl border-2 border-dashed border-gray-300 min-h-[100px]">
+                <p class="text-gray-400 italic text-center py-4">Add questions below (minimum 1 required)</p>
+              </div>
+                            
+              <div class="flex gap-3">
+                <textarea id="new-question" placeholder="Enter your question (e.g., Describe a challenging project you've led)" rows="2"
+                   class="flex-1 p-4 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-0 outline-none transition-all"></textarea>
+                <button id="add-question-btn" class="px-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:shadow-lg transition-all">
+                  <i class="fas fa-plus"></i>
+                </button>
+              </div>
+            </div>
+
+            <button id="create-session-btn" class="w-full mt-8 py-5 bg-gradient-to-r from-primary via-primary-dark to-accent text-white font-bold text-lg rounded-2xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-300">
+              <i class="fas fa-rocket mr-2"></i> Create Session & Send Invites
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 3: Single Invite -->
+      <div id="view-single-invite" class="view-content hidden">
+        <button id="single-invite-back-btn" class="mb-6 text-primary hover:text-primary-dark font-semibold transition flex items-center group">
+          <i class="fas fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> Back to Sessions
+        </button>
+                
+        <div class="max-w-2xl mx-auto">
+          <div class="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50">
+            <h3 class="text-3xl font-bold text-gray-800 mb-2">
+              Invite to: <span id="invite-session-title" class="gradient-text"></span>
+            </h3>
+            <p class="text-gray-600 mb-6">Send interview invitations to participants</p>
+                        
+            <input type="hidden" id="current-invite-session-id" value="">
+            <textarea id="single-invite-emails" placeholder="alice@example.com&#10;bob@example.com" rows="8"
+               class="w-full p-4 mb-4 border-2 border-gray-200 rounded-xl focus:border-primary focus:ring-0 outline-none transition-all font-mono text-sm"></textarea>
+                        
+            <button id="send-single-invites-btn" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-xl hover:shadow-lg transition-all mb-4">
+              <i class="fas fa-paper-plane mr-2"></i> Send Invites
+            </button>
+                        
+            <div id="single-invite-status" class="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-600">
+              Ready to send invites
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 4: Results -->
+      <div id="view-results" class="view-content hidden">
+        <button id="back-to-sessions-btn" class="mb-6 text-primary hover:text-primary-dark font-semibold transition flex items-center group">
+          <i class="fas fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> Back to Sessions
+        </button>
+        <div id="results-area"></div>
+      </div>
+    </main>
+  </div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+let currentPage = 'sessions'; 
+let questionMap = {}; 
+let sessionDataCache = {};
+let stagedQuestions = [];
+
+function getToken(){ return localStorage.getItem('ai_token'); }
+function logout(){ localStorage.removeItem('ai_token'); window.location.href = 'auth_hub.html'; }
+
+// --- Utility Functions ---
+function showToast(message, type = 'error') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  let bgColor, icon;
+  if (type === 'error') { bgColor = 'bg-gradient-to-r from-red-500 to-red-600'; icon = '⚠️'; } 
+  else if (type === 'success') { bgColor = 'bg-gradient-to-r from-green-500 to-emerald-600'; icon = '✓'; } 
+  else { bgColor = 'bg-gradient-to-r from-blue-500 to-indigo-600'; icon = 'ℹ️'; }
+
+  toast.className = `p-4 mb-2 rounded-xl text-white shadow-2xl transition-all duration-500 transform translate-x-full opacity-0 ${bgColor}`;
+  toast.style.maxWidth = '320px';
+  toast.innerHTML = `<div class="flex items-center"><span class="text-2xl mr-3">${icon}</span><span class="font-semibold">${message}</span></div>`;
+  container.appendChild(toast);
+    
+  setTimeout(() => {
+    toast.classList.remove('translate-x-full', 'opacity-0');
+    toast.classList.add('translate-x-0', 'opacity-100');
+  }, 10);
+
+  setTimeout(() => {
+    toast.classList.remove('translate-x-0', 'opacity-100');
+    toast.classList.add('translate-x-full', 'opacity-0');
+    toast.addEventListener('transitionend', () => toast.remove());
+  }, 4000);
+}
+
+async function apiJSON(path, opts = {}) {
+  const token = getToken();
+  const defaultHeaders = { 'Content-Type': 'application/json' };
+  if (token) defaultHeaders['Authorization'] = 'Bearer ' + token;
+  const headers = Object.assign({}, defaultHeaders, opts.headers || {});
+  const init = {
+    method: (opts.method || 'GET').toUpperCase(),
+    headers,
+  };
+  if (opts.body !== undefined) init.body = (typeof opts.body === 'string') ? opts.body : JSON.stringify(opts.body);
+  const res = await fetch(API_BASE + path, init);
+  if (!res.ok) {
+    const text = await res.text();
+    let parsed;
+    try { 
+        parsed = JSON.parse(text); 
+        throw new Error(parsed.detail || `HTTP ${res.status}`); 
+    }
+    catch(e) { 
+        throw new Error(text || `HTTP ${res.status}`); 
+    }
+  }
+  if (res.status === 204) return null;
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('application/json') ? res.json() : res.text();
+}
+
+// --- View Switching Logic ---
+function renderView(viewName, sessionId = null) {
+    currentPage = viewName;
+    document.querySelectorAll('.view-content').forEach(el => el.classList.add('hidden'));
+        
+    document.querySelectorAll('.nav-link').forEach(btn => {
+        btn.classList.remove('active', 'bg-white/20');
+        if (btn.getAttribute('data-view') === viewName || (viewName === 'results' && btn.getAttribute('data-view') === 'sessions') || (viewName === 'single-invite' && btn.getAttribute('data-view') === 'sessions')) {
+            btn.classList.add('active', 'bg-white/20');
+        }
+    });
+
+    const targetView = document.getElementById(`view-${viewName}`);
+    if (targetView) {
+      targetView.classList.remove('hidden');
+      targetView.classList.add('animate-slide-in');
+    }
+
+    if (viewName === 'sessions') {
+        loadSessions(); 
+    } else if (viewName === 'single-invite' && sessionId) {
+        setupSingleInvite(sessionId);
+    } else if (viewName === 'results' && sessionId) {
+        document.getElementById('results-area').innerHTML = ''; 
+        showResultsDetail(sessionId);
+    }
+}
+
+// --- Event Listeners ---
+document.querySelectorAll('.nav-link').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.preventDefault(); 
+        const view = btn.getAttribute('data-view');
+        renderView(view);
+    });
+});
+
+document.getElementById('back-to-sessions-btn').addEventListener('click', () => renderView('sessions'));
+document.getElementById('single-invite-back-btn').addEventListener('click', () => renderView('sessions'));
+
+
+// --- Session Creation Logic (View 2) ---
+document.getElementById('add-question-btn').addEventListener('click', ()=>{
+  const t = document.getElementById('new-question').value.trim();
+  if(!t){ showToast('Question text required', 'error'); return; }
+  stagedQuestions.push({ text: t, time_limit_seconds: 120, weight:1 });
+  renderStagedQuestions();
+  document.getElementById('new-question').value='';
+});
+
+function renderStagedQuestions(){
+  const el = document.getElementById('questions-list'); 
+  el.innerHTML='';
+  if (stagedQuestions.length === 0) {
+    el.innerHTML = '<p class="text-gray-400 italic text-center py-4">Add questions below (minimum 1 required)</p>';
+    return;
+  }
+  stagedQuestions.forEach((q,i)=>{
+    const d = document.createElement('div');
+    d.className = 'flex justify-between items-center p-4 bg-white rounded-xl shadow-sm border border-gray-100 hover:border-primary transition-all';
+    d.innerHTML = `
+      <div class="flex items-center flex-1">
+        <div class="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center mr-3 flex-shrink-0">
+          <span class="text-white font-bold text-sm">${i+1}</span>
+        </div>
+        <span class="text-gray-700 text-sm">${q.text}</span>
+      </div>
+      <button data-i="${i}" class="ml-4 text-red-500 hover:text-red-700 px-3 py-1 rounded-lg hover:bg-red-50 transition flex-shrink-0">
+        <i class="fas fa-trash"></i>
+      </button>
+    `;
+    el.appendChild(d);
+  });
+  el.querySelectorAll('button').forEach(b=>b.addEventListener('click', (ev)=>{
+    const idx = +ev.currentTarget.getAttribute('data-i');
+    stagedQuestions.splice(idx,1); renderStagedQuestions();
+  }));
+}
+
+document.getElementById('create-session-btn').addEventListener('click', async ()=>{
+  try{
+    const title = document.getElementById('s-title').value.trim();
+    const desc = document.getElementById('s-desc').value.trim();
+    const end = document.getElementById('s-enddate').value || null;
+    const time = parseInt(document.getElementById('s-time').value || '60',10);
+    const initialEmailsTxt = document.getElementById('initial-invite-emails').value.trim();
+        
+    if(!title){ showToast('Session Title required', 'error'); return; }
+    if(stagedQuestions.length === 0){ showToast('At least one question required', 'error'); return; }
+        
+    const initialEmails = initialEmailsTxt.split('\n').map(s=>s.trim()).filter(Boolean);
+    const end_date = end ? new Date(end).toISOString() : null; 
+    const payload = { title, description: desc, time_limit_minutes: time, end_date };
+        
+    const btn = document.getElementById('create-session-btn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Creating...';
+    btn.disabled = true;
+
+    // 1. Create Session
+    const r = await apiJSON('/api/sessions', { method:'POST', body: payload });
+    const sessionId = r.session_id;
+
+    // 2. Add Questions
+    for(const q of stagedQuestions){
+      await apiJSON(`/api/sessions/${sessionId}/questions`, { method:'POST', body: { text: q.text, time_limit_seconds: q.time_limit_seconds, weight: q.weight } });
+    }
+        
+    // 3. Send Initial Invites (if any)
+    if (initialEmails.length > 0) {
+        const invitePayload = { emails: initialEmails };
+        const inviteRes = await apiJSON(`/api/sessions/${sessionId}/invite`, { method: 'POST', body: invitePayload });
+                
+        let msg = `Session created! Invited ${inviteRes.invited.length} participant(s)`;
+        if (inviteRes.skipped && inviteRes.skipped.length > 0) {
+            msg += ` (${inviteRes.skipped.length} skipped)`;
+        }
+        showToast(msg, 'success');
+    } else {
+        showToast('Session created successfully!', 'success');
+    }
+        
+    // Cleanup
+    stagedQuestions = [];     
+    renderStagedQuestions();     
+    document.getElementById('s-title').value = '';
+    document.getElementById('s-desc').value = '';
+    document.getElementById('s-enddate').value = '';
+    document.getElementById('s-time').value = '60';
+    document.getElementById('initial-invite-emails').value = '';
+
+    renderView('sessions'); // Navigate back to the main list
+      } catch(e){ 
+     showToast('Creation failed: ' + e.message, 'error');
+  } finally {
+    document.getElementById('create-session-btn').innerHTML = '<i class="fas fa-rocket mr-2"></i> Create Session & Send Invites';
+    document.getElementById('create-session-btn').disabled = false;
+  }
+});
+
+// --- Session Listing/Management Logic (View 1) ---
+async function loadSessions(){
+  const container = document.getElementById('sessions-list-container');
+  container.innerHTML = `<div class="col-span-full skeleton h-48 rounded-2xl"></div>`; 
+
+  try{
+    // The backend now returns metrics directly in the list_sessions response
+    const rows = await apiJSON('/api/sessions');
+    sessionDataCache = rows.reduce((acc, s) => { acc[s._id] = s; return acc; }, {});
+        
+    container.innerHTML='';
+
+    if (rows.length === 0) {
+        container.innerHTML = '<div class="col-span-full text-center py-12"><div class="text-6xl mb-4 text-gray-400">📋</div><p class="text-gray-500 text-lg">No sessions yet. Create your first one!</p></div>';
+        return;
+    }
+    
+    rows.forEach((s, idx)=>{
+      const card = document.createElement('div');
+      card.className = 'card-hover bg-gradient-to-br from-white to-indigo-50/30 p-6 rounded-2xl border-2 border-white shadow-lg flex flex-col justify-between animate-slide-in';
+      card.style.animationDelay = `${idx * 0.1}s`;
+            
+      const createdDate = new Date(s.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const endDateText = s.end_date ? new Date(s.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No deadline';
+      
+      const m = s.metrics || { invited: 0, started: 0, completed: 0, total: 0 };
+      const completionRate = m.total > 0 ? ((m.completed / m.total) * 100).toFixed(0) : 0;
+
+      card.innerHTML = `
+        <div>
+            <div class="flex items-start justify-between mb-3">
+                <h4 class="text-xl font-bold text-gray-800 flex-1 pr-2">${s.title}</h4>
+                <div class="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-briefcase text-white"></i>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600 mb-4 line-clamp-2">${s.description || 'No description'}</p>
+                        
+            <div class="space-y-2 text-xs text-gray-600 bg-white/50 rounded-xl p-3 mb-4 border border-gray-100">
+                <div class="flex items-center justify-between">
+                    <span class="flex items-center"><i class="fas fa-calendar text-primary w-5"></i><span class="ml-2">Created:</span></span>
+                    <span class="font-semibold">${createdDate}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="flex items-center"><i class="fas fa-clock text-accent w-5"></i><span class="ml-2">Duration:</span></span>
+                    <span class="font-semibold">${s.time_limit_minutes} mins</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="flex items-center"><i class="fas fa-users text-green-500 w-5"></i><span class="ml-2">Participants:</span></span>
+                    <span class="font-semibold">${m.total} Total</span>
+                </div>
+            </div>
+            
+            <!-- Participant Metrics -->
+            <div class="grid grid-cols-3 gap-2 text-center text-xs mt-3">
+                <div class="p-2 bg-indigo-50 rounded-lg">
+                    <div class="font-bold text-indigo-700">${m.invited}</div>
+                    <div class="text-indigo-500">Invited</div>
+                </div>
+                <div class="p-2 bg-yellow-50 rounded-lg">
+                    <div class="font-bold text-yellow-700">${m.started}</div>
+                    <div class="text-yellow-500">Started</div>
+                </div>
+                <div class="p-2 bg-green-50 rounded-lg">
+                    <div class="font-bold text-green-700">${m.completed}</div>
+                    <div class="text-green-500">Completed</div>
+                </div>
+            </div>
+
+        </div>
+        <div class="flex gap-2 pt-4 border-t border-gray-100 mt-4">
+          <button data-id="${s._id}" class="view-results-btn flex-1 py-3 bg-gradient-to-r from-primary to-primary-dark text-white text-sm font-bold rounded-xl hover:shadow-lg transition-all">
+            <i class="fas fa-chart-line mr-1"></i> Results
+          </button>
+          <button data-id="${s._id}" class="quick-invite-btn py-3 px-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-bold rounded-xl hover:shadow-lg transition-all">
+            <i class="fas fa-user-plus"></i>
+          </button>
+          <button data-id="${s._id}" data-title="${s.title}" class="delete-session-btn py-3 px-4 bg-red-500 text-white text-sm font-bold rounded-xl hover:bg-red-600 transition-all">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    document.querySelectorAll('.view-results-btn').forEach(btn=> btn.addEventListener('click', (ev)=> renderView('results', ev.currentTarget.getAttribute('data-id'))));
+    document.querySelectorAll('.quick-invite-btn').forEach(btn=> btn.addEventListener('click', (ev)=> {
+        renderView('single-invite', ev.currentTarget.getAttribute('data-id'));
+    }));
+    document.querySelectorAll('.delete-session-btn').forEach(btn=> btn.addEventListener('click', handleDeleteSession));
+    
+  } catch(e){ 
+     container.innerHTML = `<div class="col-span-full text-center py-12"><div class="text-6xl mb-4 text-red-500">⚠️</div><p class="text-red-500 text-lg">Failed to load sessions</p><p class="text-gray-500 text-sm">${e.message}</p></div>`;
+    showToast('Failed to load sessions', 'error');  
+  }
+}
+
+async function handleDeleteSession(event) {
+    const sessionId = event.currentTarget.getAttribute('data-id');
+    const sessionTitle = event.currentTarget.getAttribute('data-title');
+    
+    // FIX: Using the correct window.confirm polyfill for iframe safety
+    if (!window.confirm(`Are you sure you want to permanently delete the session: "${sessionTitle}" and ALL associated participant data (answers, logs, etc.)? Type 'yes' to confirm.`)) {
+        return;
+    }
+    
+    const btn = event.currentTarget;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+
+    try {
+        await apiJSON(`/api/sessions/${sessionId}`, { method: 'DELETE' });
+        showToast(`Session "${sessionTitle}" deleted successfully.`, 'success');
+        loadSessions(); // Reload the list
+    } catch (e) {
+        showToast(`Failed to delete session: ${e.message}`, 'error');
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+
+// --- Single Session Invite Logic (View 3) ---
+
+function setupSingleInvite(sessionId) {
+    const session = sessionDataCache[sessionId];
+    if (!session) {
+        showToast('Session details not found!', 'error');
+        renderView('sessions');
+        return;
+    }
+    
+    document.getElementById('invite-session-title').textContent = session.title;
+    document.getElementById('current-invite-session-id').value = sessionId;
+    document.getElementById('single-invite-emails').value = '';
+    document.getElementById('single-invite-status').innerHTML = '<span class="text-gray-600">Ready to send invites</span>';
+}
+
+document.getElementById('send-single-invites-btn').addEventListener('click', async ()=>{
+  const sessionId = document.getElementById('current-invite-session-id').value;
+  const txt = document.getElementById('single-invite-emails').value.trim();
+  const statusEl = document.getElementById('single-invite-status');
+  
+  if(!sessionId || !txt){ 
+      statusEl.innerHTML = '<span class="text-red-500 font-semibold">Error: Add participant emails.</span>'; 
+      return; 
+  }
+  
+  const emails = txt.split('\n').map(s=>s.trim()).filter(Boolean);
+  
+  statusEl.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Sending invites...';
+  document.getElementById('send-single-invites-btn').disabled = true;
+
+  try{
+    const res = await apiJSON(`/api/sessions/${sessionId}/invite`, { method:'POST', body: { emails } });
+    
+    let msg = `<span class="text-green-600 font-semibold">Success!</span> Invited ${res.invited.length} participant(s).`;
+    if (res.skipped && res.skipped.length > 0) {
+        msg += ` <span class="text-yellow-600">(Skipped ${res.skipped.length} as already invited.)</span>`;
+    }
+    statusEl.innerHTML = msg;
+    document.getElementById('single-invite-emails').value='';
+    showToast('Invites sent successfully!', 'success');
+    
+  } catch(e){ 
+    statusEl.innerHTML = `<span class="text-red-500 font-semibold">Invite Error:</span> ${e.message}`; 
+    showToast('Invite failed: ' + e.message, 'error');
+  } finally {
+    document.getElementById('send-single-invites-btn').disabled = false;
+  }
+});
+
+
+// --- Results Logic (View 4) ---
+async function loadQuestionMap(sessionId) {
+    try {
+        const questions = await apiJSON(`/api/sessions/${sessionId}/questions`);
+        questionMap = questions.reduce((map, q) => {
+            map[q._id] = q.text;
+            return map;
+        }, {});
+    } catch (e) {
+        console.error('Failed to load questions for map:', e);
+        questionMap = {};
+    }
+}
+
+function getStatusClass(status) {
+    switch(status) {
+        case 'completed': return 'bg-green-100 text-green-700 border-green-300';
+        case 'started': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+        case 'invited': 
+        default: return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+    }
+}
+
+async function showResultsDetail(sessionId){
+  try{
+    const area = document.getElementById('results-area');
+    area.innerHTML = `
+      <div class="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50">
+        <h3 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4 flex items-center">
+            <i class="fas fa-spinner fa-spin mr-3 text-primary"></i> Loading Results...
+        </h3>
+        <p class="text-gray-600">Fetching session details, answers, and logs...</p>
+      </div>
+    `;
+    
+    await loadQuestionMap(sessionId); 
+    
+    const data = await apiJSON(`/api/sessions/${sessionId}/results`);
+    renderResults(data);
+  } catch(e){ 
+    document.getElementById('results-area').innerHTML = `
+        <div class="bg-white/80 p-8 rounded-3xl shadow-xl border border-red-200">
+             <h3 class="text-3xl font-bold text-red-600 mb-4 border-b pb-4"><i class="fas fa-exclamation-triangle mr-3"></i> Failed to Load Results</h3>
+             <p class="text-red-500">Error: ${e.message}</p>
+        </div>
+    `;
+    showToast('Failed to load results.', 'error');
+  }
+}
+
+function renderResults(data){
+  const area = document.getElementById('results-area'); area.innerHTML='';
+  const sessionTitle = data.session.title;
+  
+  // Outer Container
+  const container = document.createElement('div'); container.className='mb-8';
+  container.innerHTML = `
+    <h2 class="text-4xl font-bold text-gray-800 mb-2">Results: ${sessionTitle}</h2>
+    <p class="text-gray-600 mb-8">Detailed review of participant performance and proctoring data.</p>
+  `;
+  area.appendChild(container);
+
+  // Results Card Wrapper
+  const card = document.createElement('div'); 
+  card.className='bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50';
+
+  if (data.participants.length === 0) {
+      card.innerHTML += '<p class="text-gray-500 italic text-center py-8">No participants have started this session yet.</p>';
+      area.appendChild(card);
+      return;
+  }
+
+  data.participants.forEach(pwrap=>{
+    const p = pwrap.participant;
+    const statusClass = getStatusClass(p.status);
+    
+    const box = document.createElement('div'); 
+    box.className = 'border border-gray-200 p-5 rounded-xl shadow-md mb-6 bg-white hover:shadow-xl transition duration-300';
+    
+    // --- Proctoring Summary Calculation ---
+    const metrics = pwrap.violation_metrics || {};
+    const totalViolations = (metrics.FOCUS_LOST || 0) + (metrics.TAB_SWITCH || 0) + (metrics.FULLSCREEN_EXIT || 0);
+    const terminated = metrics.SESSION_TERMINATED > 0;
+
+    let summaryClass = 'bg-green-100 text-green-700 border-green-300';
+    let summaryIcon = 'fas fa-shield-alt';
+    let summaryText = 'High Integrity';
+
+    if (terminated) {
+        summaryClass = 'bg-red-100 text-red-700 border-red-300';
+        summaryIcon = 'fas fa-skull-crossbones';
+        summaryText = 'TERMINATED (Max Violations)';
+    } else if (totalViolations >= 3) {
+        summaryClass = 'bg-yellow-100 text-yellow-700 border-yellow-300';
+        summaryIcon = 'fas fa-exclamation-triangle';
+        summaryText = `Medium Risk (${totalViolations} Violations)`;
+    } else if (totalViolations > 0) {
+        summaryClass = 'bg-yellow-50 text-yellow-600 border-yellow-200';
+        summaryIcon = 'fas fa-exclamation-circle';
+        summaryText = `Low Risk (${totalViolations} Minor Events)`;
+    }
+
+
+    let answersHtml = '';
+    for(const a of pwrap.answers){
+      const qText = questionMap[a.question_id] || `Question ID: ${a.question_id}`; 
+      answersHtml += `
+        <div class="border-l-4 border-primary/50 bg-indigo-50/30 p-3 rounded-md mb-3">
+          <strong class="text-sm text-primary">Q:</strong> <span class="text-gray-700 text-sm">${qText}</span> <br>
+          <strong class="text-sm text-gray-800 mt-1 block">Transcript:</strong> 
+          <p class="text-gray-600 text-sm italic whitespace-pre-wrap">${a.transcript || '(No transcript recorded/Skipped)'}</p>
+        </div>
+      `;
+    }
+    
+    let logsHtml = '';
+    if (pwrap.proctor_logs.length > 0) {
+        logsHtml += '<div class="mt-4"><button data-id="logs-detail-' + p._id + '" class="text-xs text-primary hover:text-primary-dark font-semibold transition" onclick="document.getElementById(\'logs-detail-' + p._id + '\').classList.toggle(\'hidden\'); this.textContent = this.textContent.includes(\'Show\') ? \'Hide Detailed Logs\' : \'Show Detailed Logs\';">Show Detailed Logs</button></div>';
+
+        logsHtml += '<div id="logs-detail-' + p._id + '" class="hidden bg-red-50 p-4 rounded-xl mt-3 border border-red-200">';
+        logsHtml += '<strong class="text-red-700 block mb-2 text-sm flex items-center"><i class="fas fa-bell mr-2 text-red-500"></i> All Proctoring Events:</strong><ul class="space-y-1 text-xs">';
+        for(const l of pwrap.proctor_logs){
+            const severityClass = l.severity === 'error' ? 'text-red-600 font-semibold' : 'text-gray-600';
+            logsHtml += `<li class="${severityClass} border-b border-red-100 last:border-b-0 pb-1">
+                <span class="font-mono text-gray-500">${new Date(l.timestamp).toLocaleTimeString()}</span> — 
+                <span class="uppercase">${l.type}</span>: ${l.detail || ''}
+            </li>`;
+        }
+        logsHtml += '</ul></div>';
+    } else {
+        logsHtml = '<div class="text-xs text-gray-400 mt-2 p-2 bg-gray-50/50 rounded-md border border-gray-100 flex items-center"><i class="fas fa-shield-alt mr-2"></i> No proctoring logs recorded.</div>';
+    }
+
+    box.innerHTML = `
+      <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+        <div class="flex-1 min-w-0">
+             <strong class="text-xl font-extrabold text-gray-800 truncate block">${p.name || p.email}</strong>
+             <span class="text-sm text-gray-500 flex items-center"><i class="fas fa-envelope mr-1 w-4 text-primary"></i> ${p.email}</span>
+        </div>
+        <span class="px-3 py-1 text-xs font-bold rounded-full border ${statusClass} shadow-sm">${p.status.toUpperCase()}</span> 
+      </div>
+      
+      <!-- Proctoring Summary -->
+      <div class="p-3 mb-4 rounded-xl border-2 ${summaryClass} flex items-center justify-between">
+        <span class="font-semibold text-sm flex items-center">
+            <i class="${summaryIcon} mr-2"></i> Proctoring Status:
+        </span>
+        <span class="font-extrabold text-sm">${summaryText}</span>
+      </div>
+
+      <div class="mb-4">
+        <h4 class="text-md font-semibold text-gray-800 mb-3 flex items-center border-b border-gray-100 pb-2"><i class="fas fa-microphone-alt mr-2 text-primary"></i> Recorded Answers (${pwrap.answers.length}):</h4>
+        ${answersHtml || '<p class="text-gray-400 italic text-sm">Participant has not submitted any answers yet.</p>'}
+      </div>
+      ${logsHtml}
+    `;
+    card.appendChild(box);
+  });
+  card.appendChild(document.createElement('hr')); // Add a divider between participants
+  area.appendChild(card);
+}
+
+
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded', ()=>{
+  const token = getToken();
+  if(!token){ window.location.href='auth_hub.html'; return; }
+  
+  // Set up logout buttons
+  document.getElementById('logout-btn').addEventListener('click', logout);
+  document.getElementById('logout-btn-mobile').addEventListener('click', logout);
+  
+  // Custom confirm polyfill for delete button (Ensures it works in the iframe)
+  window.confirm = (message) => {
+    return window.prompt(message + " Type 'yes' to confirm.") === 'yes';
+  };
+
+  // Render the default view
+  renderView(currentPage);
+});
+</script>
+</body>
+</html>
