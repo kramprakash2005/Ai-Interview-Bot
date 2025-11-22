@@ -35,14 +35,6 @@
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    .is-listening .recording-indicator {
-      display: flex !important;
-      animation: float 1.5s ease-in-out infinite;
-    }
-    .is-listening #question-box {
-      animation: pulse-glow 2s infinite;
-      border-color: #ef4444;
-    }
     .view-content { display: none !important; }
     .view-active { display: block !important; animation: slideUp 0.4s ease-out; }
     .gradient-bg {
@@ -53,6 +45,13 @@
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.3);
     }
+    .is-listening #question-box {
+      animation: pulse-glow 2s infinite;
+      border-color: #ef4444;
+    }
+    .is-listening .recording-indicator {
+      display: flex !important;
+    }
   </style>
 </head>
 <body class="gradient-bg min-h-screen flex items-center justify-center p-6">
@@ -60,13 +59,12 @@
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
 
-  <div class="w-full max-w-5xl glass-effect rounded-3xl shadow-2xl p-8 md:p-12">
+  <div class="w-full max-w-5xl glass-effect rounded-3xl shadow-2xl p-8 md:p-12 relative">
     
     <!-- Header -->
     <div class="text-center mb-8">
-      <!-- Logo intentionally removed here -->
       <h1 class="text-4xl font-extrabold text-gray-800 mb-2">AI Interview Portal</h1>
-      <p id="session-job-title" class="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Loading...</p>
+      <p id="session-job-title" class="text-xl font-semibold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Loading Session...</p>
     </div>
 
     <!-- VIEW 1: Details Form -->
@@ -79,7 +77,6 @@
           <h2 class="text-2xl font-bold text-gray-800">Your Information</h2>
         </div>
         
-        <p class="text-gray-600 mb-6">Please provide your details before starting the interview</p>
         <div id="details-error" class="hidden bg-red-50 border-2 border-red-200 text-red-600 p-4 rounded-xl mb-4 font-medium"></div>
 
         <div class="space-y-4">
@@ -107,213 +104,110 @@
           <h2 class="text-2xl font-bold text-gray-800">Equipment Check</h2>
         </div>
         
-        <p class="text-gray-600 mb-6">Test your audio equipment before starting</p>
-        
         <!-- Speaker Test -->
-        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl mb-6 border-2 border-blue-200">
-          <div class="flex items-start justify-between mb-4">
-            <div class="flex-1">
-              <div class="flex items-center mb-2">
-                <i class="fas fa-volume-up text-primary text-xl mr-3"></i>
-                <strong class="text-lg text-gray-800">Speaker Test</strong>
-              </div>
-              <p class="text-sm text-gray-600 mb-3">Click to play a test sound</p>
-              <button id="test-audio-btn" class="px-6 py-3 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl hover:shadow-lg transition-all font-semibold">
-                <i class="fas fa-play mr-2"></i> Play Test Sound
-              </button>
+        <div class="bg-blue-50 p-6 rounded-2xl mb-6 border-2 border-blue-200 flex justify-between items-center">
+            <div>
+                <h3 class="font-bold text-gray-800 mb-2"><i class="fas fa-volume-up mr-2"></i> Speaker Test</h3>
+                <button id="test-audio-btn" class="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-dark">Play Sound</button>
             </div>
             <div class="flex items-center">
-              <input type="checkbox" id="speaker-check" class="w-6 h-6 text-green-600 rounded focus:ring-0" />
-              <label for="speaker-check" class="ml-3 text-gray-700 font-medium">I heard it</label>
+                <input type="checkbox" id="speaker-check" class="w-5 h-5 text-primary rounded" />
+                <label for="speaker-check" class="ml-2 text-gray-700">I heard it</label>
             </div>
-          </div>
         </div>
 
-        <!-- Microphone Test -->
-        <div class="bg-gradient-to-br from-red-50 to-orange-50 p-6 rounded-2xl mb-6 border-2 border-red-200">
-          <div class="flex items-center mb-4">
-            <i class="fas fa-microphone text-red-600 text-xl mr-3"></i>
-            <strong class="text-lg text-gray-800">Microphone Test</strong>
+        <!-- Mic Test -->
+        <div class="bg-orange-50 p-6 rounded-2xl mb-6 border-2 border-orange-200">
+          <h3 class="font-bold text-gray-800 mb-2"><i class="fas fa-microphone mr-2"></i> Microphone Test</h3>
+          <div class="flex gap-2 mb-3">
+            <button id="start-mic-test-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg text-sm">Start Test</button>
+            <button id="stop-mic-test-btn" class="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm hidden">Stop</button>
           </div>
-          
-          <div id="mic-test-status" class="text-sm font-medium text-gray-700 mb-4 p-3 bg-white/50 rounded-lg">
-            Status: Ready to test microphone
-          </div>
-          
-          <div class="flex gap-3 mb-4">
-            <button id="start-mic-test-btn" class="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold rounded-xl hover:shadow-lg transition-all">
-              <i class="fas fa-microphone mr-2"></i> Start Test
-            </button>
-            <button id="stop-mic-test-btn" class="px-6 py-3 bg-gray-500 text-white font-bold rounded-xl hover:bg-gray-600 transition-all" style="display:none;">
-              <i class="fas fa-stop mr-2"></i> Stop
-            </button>
-          </div>
-          
-          <div class="bg-white border-2 border-gray-200 rounded-xl p-4 mb-4">
-            <p class="text-xs text-gray-500 mb-2">Live Transcription:</p>
-            <div id="mic-test-transcript" class="text-gray-700 min-h-[60px] italic">
-              Your speech will appear here...
-            </div>
-          </div>
-
-          <div class="flex items-center">
-            <input type="checkbox" id="mic-check" class="w-6 h-6 text-green-600 rounded focus:ring-0" disabled />
-            <label for="mic-check" class="ml-3 text-gray-700 font-medium">My speech was transcribed correctly</label>
+          <p id="mic-test-status" class="text-xs text-gray-500 mb-2">Status: Ready</p>
+          <div id="mic-test-transcript" class="bg-white p-3 rounded border h-16 overflow-y-auto text-sm text-gray-600 italic">...</div>
+          <div class="flex items-center mt-3">
+            <input type="checkbox" id="mic-check" class="w-5 h-5 text-primary rounded" disabled />
+            <label for="mic-check" class="ml-2 text-gray-700">Transcript appeared correctly</label>
           </div>
         </div>
         
-        <button id="next-to-interview-btn" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg rounded-xl hover:shadow-xl transform hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" disabled>
-          <i class="fas fa-check-circle mr-2"></i> Start Interview
+        <button id="next-to-interview-btn" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold text-lg rounded-xl hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          Start Interview <i class="fas fa-check-circle ml-2"></i>
         </button>
       </div>
     </div>
 
     <!-- VIEW 3: Interview -->
     <div id="view-interview" class="view-content">
-      <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 border-b-2 border-gray-200 mb-8">
+      <div class="flex justify-between items-center pb-4 border-b border-gray-200 mb-6">
         <div>
-          <h2 id="interview-title" class="text-3xl font-bold text-gray-800">Interview in Progress</h2>
-          <div class="text-gray-600 mt-1">
-            Candidate: <span id="participant-name" class="font-semibold text-gray-800">Participant</span>
-          </div>
+          <h2 class="text-2xl font-bold text-gray-800">Interview In Progress</h2>
+          <p class="text-gray-500 text-sm">Candidate: <span id="participant-name">...</span></p>
         </div>
-        <div class="mt-4 md:mt-0 flex items-center bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-xl shadow-lg">
-          <i class="fas fa-clock mr-2"></i> 
-          <span id="remaining-time" class="font-bold text-xl">--:--</span>
+        <div class="bg-red-100 text-red-600 px-4 py-2 rounded-lg font-mono font-bold flex items-center">
+          <i class="fas fa-clock mr-2"></i> <span id="remaining-time">--:--</span>
         </div>
       </div>
 
-      <!-- Recording Indicator (Hidden by default) -->
-      <div class="recording-indicator hidden justify-center mb-6">
-        <div class="bg-gradient-to-br from-red-500 to-red-600 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center">
-          <div class="w-4 h-4 bg-white rounded-full mr-3 animate-pulse"></div>
-          <span class="font-bold text-lg">RECORDING</span>
+      <!-- Recording Indicator -->
+      <div class="recording-indicator hidden justify-center mb-6 animate-bounce">
+        <div class="bg-red-600 text-white px-4 py-1 rounded-full text-sm font-bold flex items-center shadow-lg">
+          <div class="w-2 h-2 bg-white rounded-full mr-2 animate-pulse"></div> REC
         </div>
       </div>
 
       <!-- Question Box -->
-      <div id="question-box" class="min-h-[200px] flex flex-col items-center justify-center text-center p-8 bg-gradient-to-br from-indigo-50 to-purple-50 border-4 border-primary/30 rounded-2xl shadow-inner mb-8 transition-all">
-        <p id="question-text" class="text-2xl md:text-3xl font-bold text-gray-800">
-          Click 'Start Interview' to begin
-        </p>
+      <div id="question-box" class="min-h-[160px] flex flex-col items-center justify-center text-center p-6 bg-indigo-50 border-4 border-transparent rounded-2xl transition-all mb-6">
+        <p id="question-text" class="text-2xl font-bold text-gray-800">Preparing questions...</p>
       </div>
 
       <!-- Controls -->
-      <div class="flex flex-wrap gap-3 justify-center mb-8">
-        <button id="start-btn" class="px-8 py-4 bg-gradient-to-r from-primary to-primary-dark text-white font-bold text-lg rounded-xl hover:shadow-xl transform hover:-translate-y-1 transition-all">
-          <i class="fas fa-play mr-2"></i> Start Interview
+      <div class="flex flex-wrap gap-3 justify-center mb-6">
+        <button id="start-btn" class="px-8 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark shadow-lg transition-all">
+          Start Question
         </button>
         
-        <button id="stop-btn" class="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 text-white font-bold text-lg rounded-xl hover:shadow-xl transform hover:-translate-y-1 transition-all" style="display:none">
-          <i class="fas fa-stop mr-2"></i> Stop & Submit
+        <button id="stop-btn" class="px-8 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg transition-all hidden">
+          Stop & Submit
         </button>
         
-        <button id="rerecord-btn" class="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold rounded-xl hover:shadow-lg transition-all" style="display:none">
-          <i class="fas fa-redo mr-2"></i> Re-record
-        </button>
-        
-        <button id="repeat-btn" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all" disabled>
-          <i class="fas fa-volume-up mr-2"></i> Repeat
-        </button>
-        
-        <button id="skip-btn" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all" disabled>
-          <i class="fas fa-forward mr-2"></i> Skip
-        </button>
-
-        <button id="end-test-btn" class="px-6 py-3 bg-gradient-to-r from-gray-700 to-gray-800 text-white font-semibold rounded-xl hover:shadow-lg transition-all">
-          <i class="fas fa-flag-checkered mr-2"></i> End Test
+        <button id="end-test-btn" class="px-6 py-3 bg-gray-700 text-white font-semibold rounded-xl hover:bg-gray-800 ml-auto">
+          <i class="fas fa-power-off mr-2"></i> End Test
         </button>
       </div>
 
-      <!-- Transcript Box -->
-      <div class="bg-gradient-to-br from-gray-50 to-indigo-50 border-2 border-gray-200 rounded-2xl p-6 min-h-[150px]">
-        <div class="flex items-center mb-3">
-          <i class="fas fa-file-lines text-primary mr-2"></i>
-          <p class="font-semibold text-gray-800">Your Answer:</p>
-        </div>
-        <div id="answer-box" class="text-gray-600 italic whitespace-pre-wrap">
-          Transcript will appear here...
-        </div>
+      <!-- Transcript -->
+      <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 min-h-[100px]">
+        <p class="text-xs text-gray-500 font-bold uppercase mb-2">Your Answer (Live Transcript):</p>
+        <div id="answer-box" class="text-gray-700 whitespace-pre-wrap"></div>
       </div>
     </div>
 
     <!-- VIEW 4: Complete -->
-    <div id="view-complete" class="view-content text-center">
-      <div class="max-w-2xl mx-auto">
-        <div class="bg-gradient-to-br from-green-400 to-emerald-500 w-32 h-32 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl">
-          <i class="fas fa-check text-6xl text-white"></i>
-        </div>
-        
-        <h2 id="complete-heading" class="text-4xl font-bold text-gray-800 mb-4">Interview Complete!</h2>
-        <p class="text-xl text-gray-600 mb-8">
-          Thank you for participating. Your responses have been submitted successfully.
-        </p>
-        
-        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-8 rounded-2xl border-2 border-indigo-200">
-          <i class="fas fa-info-circle text-primary text-2xl mb-3"></i>
-          <p class="text-gray-700">You may now close this window</p>
-        </div>
+    <div id="view-complete" class="view-content text-center py-10">
+      <div class="bg-green-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+        <i class="fas fa-check text-5xl text-green-600"></i>
+      </div>
+      <h2 class="text-3xl font-bold text-gray-800 mb-2">Interview Submitted!</h2>
+      <p class="text-gray-600 mb-8">Thank you. Your responses have been sent for AI evaluation.</p>
+      <div class="p-4 bg-blue-50 text-blue-800 rounded-lg inline-block">
+        You may now safely close this window.
       </div>
     </div>
 
   </div>
 
 <script>
+// --- CONFIGURATION ---
 const API_BASE = "http://localhost:8000"; 
-let currentView = 'details';
 
-const PROCTOR_CONFIG = {
-    MAX_VIOLATIONS: 5, // Maximum allowed focus/tab violations before termination
-    LOG_UPLOAD_INTERVAL_MS: 30000, // Upload logs every 30 seconds
-};
-
-function showToast(message, type = 'error') {
-  const container = document.getElementById('toast-container');
-  const toast = document.createElement('div');
-  
-  let bgColor, icon;
-  if (type === 'error') {
-    bgColor = 'bg-gradient-to-r from-red-500 to-red-600';
-    icon = '⚠️';
-  } else if (type === 'warning') {
-    bgColor = 'bg-gradient-to-r from-yellow-500 to-orange-500';
-    icon = '🔔';
-  } else if (type === 'success') {
-    bgColor = 'bg-gradient-to-r from-green-500 to-emerald-600';
-    icon = '✓';
-  } else {
-    bgColor = 'bg-gradient-to-r from-blue-500 to-indigo-600';
-    icon = 'ℹ️';
-  }
-
-  toast.className = `p-4 mb-2 rounded-xl text-white shadow-2xl transition-all duration-500 transform translate-x-full opacity-0 ${bgColor}`;
-  toast.style.maxWidth = '320px';
-  toast.innerHTML = `<div class="flex items-center"><span class="text-2xl mr-3">${icon}</span><span class="font-semibold">${message}</span></div>`;
-  
-  container.appendChild(toast);
-  
-  setTimeout(() => {
-    toast.classList.remove('translate-x-full', 'opacity-0');
-    toast.classList.add('translate-x-0', 'opacity-100');
-  }, 10);
-
-  setTimeout(() => {
-    toast.classList.remove('translate-x-0', 'opacity-100');
-    toast.classList.add('translate-x-full', 'opacity-0');
-    toast.addEventListener('transitionend', () => toast.remove());
-  }, 4000);
-}
-
-
-function qs(name) {
-  const p = new URLSearchParams(window.location.search);
-  return p.get(name);
-}
-
+// --- UTILITIES ---
+function qs(name) { return new URLSearchParams(window.location.search).get(name); }
 const token = qs('token');
 const participant_id = qs('participant_id');
 const session_id = qs('session_id');
 
+// --- STATE MANAGEMENT ---
 const state = {
   questions: [],
   qIndex: -1,
@@ -321,720 +215,319 @@ const state = {
   isListening: false,
   remainingSeconds: 0,
   timerInterval: null,
-  participantToken: token,
-  audio: new Audio(),
-  micTestInProgress: false,
-  proctorLogs: [],       // Array to store logs before bulk upload
-  violationCount: 0,     // Counter for focus/tab violations
-  logUploadInterval: null,
-  isTerminating: false,  // Flag to prevent logging during termination
+  isTerminating: false
 };
 
+// --- DOM ELEMENTS ---
 const dom = {
-  body: document.body, 
-  allViews: {
+  // Views
+  views: {
     details: document.getElementById('view-details'),
     test: document.getElementById('view-test'),
     interview: document.getElementById('view-interview'),
     complete: document.getElementById('view-complete')
   },
-  sessionTitle: document.getElementById('session-job-title'),
-  detailsError: document.getElementById('details-error'),
+  // Details
   pName: document.getElementById('p-name'),
   pPhone: document.getElementById('p-phone'),
   pOther: document.getElementById('p-other'),
-  nextToTestBtn: document.getElementById('next-to-test-btn'),
-  testAudioBtn: document.getElementById('test-audio-btn'),
-  speakerCheck: document.getElementById('speaker-check'),
-  micTestTranscript: document.getElementById('mic-test-transcript'),
-  micTestStatus: document.getElementById('mic-test-status'),
-  startMicTestBtn: document.getElementById('start-mic-test-btn'),
-  stopMicTestBtn: document.getElementById('stop-mic-test-btn'),
-  micCheck: document.getElementById('mic-check'),
-  nextToInterviewBtn: document.getElementById('next-to-interview-btn'),
-  questionBox: document.getElementById('question-box'),
-  questionText: document.getElementById('question-text'),
-  startBtn: document.getElementById('start-btn'),
-  stopBtn: document.getElementById('stop-btn'),
-  rerecordBtn: document.getElementById('rerecord-btn'),
-  repeatBtn: document.getElementById('repeat-btn'),
-  skipBtn: document.getElementById('skip-btn'),
-  endTestBtn: document.getElementById('end-test-btn'),
-  answerBox: document.getElementById('answer-box'),
+  btnNextToTest: document.getElementById('next-to-test-btn'),
+  detailsError: document.getElementById('details-error'),
+  sessionTitle: document.getElementById('session-job-title'),
+  // Test
+  btnTestAudio: document.getElementById('test-audio-btn'),
+  btnMicStart: document.getElementById('start-mic-test-btn'),
+  btnMicStop: document.getElementById('stop-mic-test-btn'),
+  micTranscript: document.getElementById('mic-test-transcript'),
+  micStatus: document.getElementById('mic-test-status'),
+  checkSpeaker: document.getElementById('speaker-check'),
+  checkMic: document.getElementById('mic-check'),
+  btnNextToInterview: document.getElementById('next-to-interview-btn'),
+  // Interview
+  participantName: document.getElementById('participant-name'),
   remainingTime: document.getElementById('remaining-time'),
-  interviewTitle: document.getElementById('interview-title'),
-  participantNameDisplay: document.getElementById('participant-name')
+  questionText: document.getElementById('question-text'),
+  answerBox: document.getElementById('answer-box'),
+  btnStart: document.getElementById('start-btn'),
+  btnStop: document.getElementById('stop-btn'),
+  btnEndTest: document.getElementById('end-test-btn'),
+  body: document.body
 };
 
-// --- API Helpers ---
-async function apiPost(path, body){
+// --- API HELPER ---
+async function apiPost(path, body) {
   const res = await fetch(API_BASE + path, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
+    method: 'POST', 
+    headers: {'Content-Type': 'application/json'}, 
     body: JSON.stringify(body)
   });
-  if (!res.ok) {
-    const txt = await res.text().catch(()=>'');
-    let msg = `API error ${res.status}`;
-    try { msg += `: ${JSON.parse(txt).detail}`; } catch(e) { msg += ` (${txt})`; }
-    throw new Error(msg);
-  }
+  if (!res.ok) throw new Error(`API Error ${res.status}`);
   return res.json();
 }
 
-async function apiGet(path) {
-    const res = await fetch(API_BASE + path);
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    return res.json();
+function showView(name) {
+  Object.values(dom.views).forEach(v => v.classList.remove('view-active'));
+  if(dom.views[name]) dom.views[name].classList.add('view-active');
 }
 
-// --- View Switching ---
-function showView(viewName) {
-    if (!dom.allViews[viewName]) return;
-    currentView = viewName;
-    Object.keys(dom.allViews).forEach(key => {
-        dom.allViews[key].classList.remove('view-active');
-    });
-    dom.allViews[viewName].classList.add('view-active');
+function showToast(msg, type='error') {
+  const div = document.createElement('div');
+  div.className = `p-4 mb-2 rounded-lg text-white shadow-lg ${type==='error'?'bg-red-600':'bg-green-600'}`;
+  div.innerText = msg;
+  document.getElementById('toast-container').appendChild(div);
+  setTimeout(()=>div.remove(), 3000);
 }
 
-// --- General Functions ---
-
-function updateRemainingTimeDisplay(){
-  const m = Math.floor(state.remainingSeconds/60);
-  const s = state.remainingSeconds%60;
-  dom.remainingTime.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
-
-function speak(text){
-  return new Promise((resolve)=>{
-    if (!('speechSynthesis' in window)) return resolve();
-    const ut = new SpeechSynthesisUtterance(text);
-    ut.lang = 'en-US';
-    ut.rate = 1; 
-    ut.pitch = 1;
-    ut.onend = () => resolve();
-    ut.onerror = () => resolve();
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(ut);
-  });
-}
-
-// --- Proctoring Logic ---
-
-function logProctorViolation(type, detail, severity='warning'){
-    if (state.isTerminating) return; // Stop logging if we are ending the session
-
-    const log = {
-        type: type,
-        detail: detail,
-        timestamp: new Date().toISOString(),
-        severity: severity,
-        question_id: state.questions[state.qIndex]?.id || 'PRE_TEST',
-    };
-    state.proctorLogs.push(log);
-    console.warn(`[PROCTOR] ${type}: ${detail}`);
-
-    // Check for focus/tab violation limits
-    if (type === 'FOCUS_LOST' || type === 'TAB_SWITCH') {
-        state.violationCount++;
-        checkViolationLimit();
-    }
-}
-
-async function uploadProctorLogs() {
-    if (state.proctorLogs.length === 0) return;
-
-    // Use a copy of the logs and clear the primary array immediately
-    const logsToSend = [...state.proctorLogs];
-    state.proctorLogs = []; 
-
-    try {
-        await apiPost('/api/proctor/logs', {
-            participant_id: participant_id,
-            logs: logsToSend
-        });
-    } catch (e) {
-        // If upload fails, merge the unsent logs back into the array
-        console.error("Failed to upload proctor logs. Merging back.", e);
-        state.proctorLogs.push(...logsToSend);
-    }
-}
-
-function startProctoringUploader() {
-    if (state.logUploadInterval) clearInterval(state.logUploadInterval);
-    state.logUploadInterval = setInterval(uploadProctorLogs, PROCTOR_CONFIG.LOG_UPLOAD_INTERVAL_MS);
-}
-
-function checkViolationLimit() {
-    if (state.violationCount === 1) {
-        showToast("Warning: Please remain focused on the interview window.", 'warning');
-    } else if (state.violationCount > 1 && state.violationCount < PROCTOR_CONFIG.MAX_VIOLATIONS) {
-        showToast(`Violation detected! Limit: ${state.violationCount}/${PROCTOR_CONFIG.MAX_VIOLATIONS}`, 'warning');
-    } else if (state.violationCount >= PROCTOR_CONFIG.MAX_VIOLATIONS) {
-        showToast("Maximum violations reached. Interview is being terminated.", 'error');
-        logProctorViolation('SESSION_TERMINATED', 'Maximum focus/tab violations reached.', 'error');
-        // Delay termination slightly to allow the final log to queue up
-        setTimeout(() => completeInterviewFlow(false, 'TERMINATED'), 500);
-    }
-}
-
-
-// --- Event Listeners for Proctoring Activation ---
-
-function setupProctoringEvents() {
-    // 1. Focus/Tab Switching Detection
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden' && !state.isTerminating) {
-            logProctorViolation('TAB_SWITCH', 'Participant switched tabs/minimized window.');
-        } else if (document.visibilityState === 'visible' && !state.isTerminating) {
-            logProctorViolation('FOCUS_RETURN', 'Participant returned to interview window.');
-        }
-    });
-
-    window.addEventListener('blur', () => {
-        if (!state.isTerminating && document.visibilityState === 'visible') {
-            // This detects losing focus without minimizing (e.g., clicking another app window)
-            logProctorViolation('FOCUS_LOST', 'Browser window lost focus.', 'warning');
-        }
-    });
-    
-    // NEW: Fullscreen Exit Detection
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-
-    // 2. Disabled Features (Right-Click, Copy/Paste, Dev Tools)
-    window.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        logProctorViolation('RIGHT_CLICK', 'Attempted right-click menu access.', 'warning');
-        showToast('Right-click is disabled during the interview.', 'warning');
-    });
-
-    window.addEventListener('keydown', (e) => {
-        // Ctrl+C, Ctrl+V, Ctrl+Shift+I (Dev Tools), F12 (Dev Tools)
-        const isControl = e.ctrlKey || e.metaKey; // metaKey for Command on Mac
-        const isDevToolKey = (isControl && e.shiftKey && e.key === 'I') || e.key === 'F12';
-        
-        if ((isControl && (e.key === 'c' || e.key === 'v' || e.key === 'V' || e.key === 'C')) || isDevToolKey) {
-            e.preventDefault();
-            
-            let type;
-            if (e.key === 'c' || e.key === 'C') type = 'COPY_ATTEMPT';
-            else if (e.key === 'v' || e.key === 'V') type = 'PASTE_ATTEMPT';
-            else type = 'DEV_TOOL_ATTEMPT';
-
-            logProctorViolation(type, `Blocked shortcut: ${e.code}`, 'warning');
-            showToast(`Action blocked: Please do not use ${e.key === 'F12' ? 'Developer Tools' : 'Copy/Paste'}.`, 'warning');
-        }
-    });
-}
-
-function handleFullscreenChange() {
-    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
-    
-    if (currentView === 'interview' && !isFullscreen && !state.isTerminating) {
-        logProctorViolation('FULLSCREEN_EXIT', 'Participant exited fullscreen mode.', 'error');
-        showToast('You must remain in fullscreen mode. Re-entering fullscreen...', 'warning');
-        
-        // Attempt to re-request fullscreen (soft enforcement)
-        try {
-            const el = document.documentElement;
-            if (el.requestFullscreen) el.requestFullscreen();
-            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-            else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
-            else if (el.msRequestFullscreen) el.msRequestFullscreen();
-        } catch (e) {
-            console.error("Failed to re-request fullscreen:", e);
-        }
-        
-        // Check for violation limit immediately after exit
-        state.violationCount++;
-        checkViolationLimit();
-    }
-}
-
-
-// --- Flow Control ---
-
-async function completeInterviewFlow(isTimeout = false, terminationReason = 'COMPLETED') {
-    if (state.isTerminating) return; // Prevent double termination
-    state.isTerminating = true;
-
-    clearInterval(state.timerInterval);
-    if (state.logUploadInterval) clearInterval(state.logUploadInterval);
-    
-    // Stop recognition immediately
-    if (state.isListening && state.recognition) {
-        try { state.recognition.stop(); } catch(e) {}
-    }
-    
-    // Exit fullscreen on completion/termination (if supported)
-    if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
-        try {
-            if (document.exitFullscreen) document.exitFullscreen();
-            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-            else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
-            else if (document.msExitFullscreen) document.msExitFullscreen();
-        } catch (e) {
-            console.warn("Could not exit fullscreen gracefully:", e);
-        }
-    }
-    
-    // Perform final log upload synchronously if possible
-    await uploadProctorLogs();
-    
-    dom.body.classList.remove('is-listening');
-    dom.stopBtn.style.display = 'none';
-    dom.startBtn.style.display = 'none';
-    dom.rerecordBtn.style.display = 'none';
-
-    dom.sessionTitle.textContent = "Finalizing...";
-    
-    // Mark as completed in backend
-    try {
-        await apiPost(`/api/participants/${participant_id}/complete`, {});
-    } catch(e) {
-        console.error("Completion endpoint failed:", e);
-    }
-    
-    // Show completion view
-    const completeHeadingEl = document.getElementById('complete-heading');
-    const completeIcon = dom.allViews.complete.querySelector('i');
-    const completeCircle = dom.allViews.complete.querySelector('.w-32');
-
-    if (isTimeout) {
-        completeHeadingEl.textContent = "Time Expired";
-        completeIcon.classList.replace('fa-check', 'fa-hourglass-end');
-        completeCircle.classList.replace('from-green-400', 'from-red-400');
-        completeCircle.classList.replace('to-emerald-500', 'to-red-600');
-    } else if (terminationReason === 'TERMINATED') {
-        completeHeadingEl.textContent = "Test Terminated";
-        completeHeadingEl.classList.add('text-red-600');
-        completeIcon.classList.replace('fa-check', 'fa-exclamation-triangle');
-        completeCircle.classList.replace('from-green-400', 'from-red-600');
-        completeCircle.classList.replace('to-emerald-500', 'to-red-800');
-    }
-    
-    showView('complete');
-}
-
-
-// ---------------- VIEW 1: DETAILS LOGIC ----------------
-
-dom.nextToTestBtn.addEventListener('click', async () => {
-    const name = dom.pName.value.trim();
-    const phone = dom.pPhone.value.trim();
-    const other = dom.pOther.value.trim();
-
-    dom.detailsError.classList.add('hidden');
-
-    if (!name) {
-        dom.detailsError.textContent = 'Full Name is required';
-        dom.detailsError.classList.remove('hidden');
-        return;
-    }
-    
-    dom.nextToTestBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Saving...';
-    dom.nextToTestBtn.disabled = true;
-
-    try {
-        await apiPost(`/api/participants/${participant_id}/profile`, {
-            name: name,
-            phone_number: phone || null,
-            other_details: other || null
-        });
-        dom.participantNameDisplay.textContent = name;
-        showView('test');
-    } catch(e) {
-        dom.detailsError.textContent = `Failed: ${e.message}`;
-        dom.detailsError.classList.remove('hidden');
-    } finally {
-        dom.nextToTestBtn.innerHTML = 'Continue to Equipment Test <i class="fas fa-arrow-right ml-2"></i>';
-        dom.nextToTestBtn.disabled = false;
-    }
-});
-
-// ---------------- VIEW 2: TEST LOGIC ----------------
-
-dom.testAudioBtn.addEventListener('click', () => {
-    speak("This is a test of your speaker volume. If you hear this clearly, please check the box.");
-});
-
-let micTestRecognition = null;
-let micTestAccumulatedTranscript = '';
-
-function initializeMicTestRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-        dom.micTestStatus.textContent = 'Error: Speech recognition not supported';
-        dom.startMicTestBtn.disabled = true;
-        return null;
-    }
-    micTestRecognition = new SpeechRecognition();
-    micTestRecognition.interimResults = true;
-    micTestRecognition.lang = 'en-US';
-    micTestRecognition.continuous = true;
-    
-    micTestRecognition.onstart = () => {
-        state.micTestInProgress = true;
-        micTestAccumulatedTranscript = '';
-        dom.micTestTranscript.textContent = 'Listening... Speak now';
-        dom.micTestStatus.textContent = 'Status: Recording started';
-        dom.startMicTestBtn.style.display = 'none';
-        dom.stopMicTestBtn.style.display = 'inline-block';
-    };
-
-    micTestRecognition.onresult = (evt) => {
-        let final = '';
-        let interim = '';
-        for (let i = evt.resultIndex; i < evt.results.length; i++) {
-            const t = evt.results[i][0].transcript;
-            if (evt.results[i].isFinal) final += t + ' ';
-            else interim += t;
-        }
-        if (final) micTestAccumulatedTranscript += final;
-        dom.micTestTranscript.textContent = micTestAccumulatedTranscript + interim;
-    };
-
-    micTestRecognition.onend = () => {
-        state.micTestInProgress = false;
-        dom.micTestStatus.textContent = 'Status: Test complete';
-        dom.startMicTestBtn.style.display = 'inline-block';
-        dom.stopMicTestBtn.style.display = 'none';
-        dom.micCheck.disabled = false;
-    };
-
-    micTestRecognition.onerror = (e) => {
-        state.micTestInProgress = false;
-        dom.micTestStatus.textContent = `Error: ${e.error}`;
-        dom.startMicTestBtn.style.display = 'inline-block';
-        dom.stopMicTestBtn.style.display = 'none';
-    };
-    return micTestRecognition;
-}
-
-dom.startMicTestBtn.addEventListener('click', () => {
-    if (!micTestRecognition) micTestRecognition = initializeMicTestRecognition();
-    if (micTestRecognition && !state.micTestInProgress) micTestRecognition.start();
-});
-
-dom.stopMicTestBtn.addEventListener('click', () => {
-    if (micTestRecognition && state.micTestInProgress) micTestRecognition.stop();
-});
-
-function updateTestButtonState() {
-    const speakerOk = dom.speakerCheck.checked;
-    const micOk = dom.micCheck.checked;
-    dom.nextToInterviewBtn.disabled = !(speakerOk && micOk);
-}
-dom.speakerCheck.addEventListener('change', updateTestButtonState);
-dom.micCheck.addEventListener('change', updateTestButtonState);
-
-dom.nextToInterviewBtn.addEventListener('click', async () => {
-    dom.nextToInterviewBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Starting...';
-    dom.nextToInterviewBtn.disabled = true;
-    
-    try {
-        // NEW: Request fullscreen immediately before starting session
-        const el = document.documentElement;
-        if (el.requestFullscreen) {
-            await el.requestFullscreen();
-        } else if (el.webkitRequestFullscreen) {
-            await el.webkitRequestFullscreen();
-        } else if (el.mozRequestFullScreen) {
-            await el.mozRequestFullScreen();
-        } else if (el.msRequestFullscreen) {
-            await el.msRequestFullscreen();
-        } else {
-            // Log if fullscreen is not supported/possible
-            logProctorViolation('FULLSCREEN_FAILED', 'Browser does not support fullscreen request.', 'info');
-            showToast('Warning: Fullscreen mode is recommended but not supported by your browser.', 'warning');
-        }
-        
-        const data = await apiPost(`/api/sessions/${session_id}/start`, { token });
-        state.questions = data.questions || [];
-        state.remainingSeconds = (data.time_limit_minutes || 60) * 60;
-        
-        const sessionInfo = await apiGet(`/api/sessions/${session_id}/info`);
-        dom.sessionTitle.textContent = sessionInfo.title || 'Interview';
-        
-        // Start proctoring background upload right before starting the interview flow
-        startProctoringUploader();
-        setupProctoringEvents();
-
-        showView('interview');
-        updateRemainingTimeDisplay();
-        startTimer();
-        
-        dom.startBtn.style.display = 'inline-block';
-        dom.interviewTitle.textContent = dom.sessionTitle.textContent;
-        
-        initializeRecognition();
-        
-    } catch (e) {
-        // Use custom alert polyfill
-        window.alert(`Failed to start: ${e.message}`);
-        dom.nextToInterviewBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Start Interview';
-        dom.nextToInterviewBtn.disabled = false;
-        
-        // If a step failed (e.g., fullscreen permission denied), ensure we stop logging upload
-        if (state.logUploadInterval) clearInterval(state.logUploadInterval);
-    }
-});
-
-// ---------------- VIEW 3: INTERVIEW LOGIC ----------------
-
-function startTimer(){
-  if (state.timerInterval) return;
-  state.timerInterval = setInterval(()=>{
-    state.remainingSeconds--;
-    updateRemainingTimeDisplay();
-    if (state.remainingSeconds <= 0) completeInterviewFlow(true);
-  }, 1000);
-}
-
-function initializeRecognition(){
+// --- INITIALIZATION ---
+document.addEventListener('DOMContentLoaded', async () => {
+  // Browser Check
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    dom.questionText.textContent = 'Speech recognition not supported in this browser';
-    dom.startBtn.disabled = true;
-    logProctorViolation('MIC_UNSUPPORTED', 'Web Speech API not found.', 'error');
+    alert("CRITICAL: Your browser does not support Speech Recognition. Please use Chrome.");
     return;
   }
-  state.recognition = new SpeechRecognition();
-  state.recognition.interimResults = true;
-  state.recognition.maxAlternatives = 1;
-  state.recognition.lang = 'en-US';
-  state.recognition.continuous = true; 
-  
-  let accumulatedTranscript = '';
 
-  state.recognition.onresult = (evt) => {
-    let final = '';
-    let interim = '';
-    for (let i = evt.resultIndex; i < evt.results.length; i++) {
-      const t = evt.results[i][0].transcript;
-      if (evt.results[i].isFinal) final += t + ' ';
-      else interim += t;
-    }
-    if (final) accumulatedTranscript += final;
-    dom.answerBox.textContent = accumulatedTranscript + interim;
-  };
-  
-  state.recognition.onstart = () => {
-    accumulatedTranscript = '';
-    dom.body.classList.add('is-listening');
-  }
-  
-  state.recognition.onerror = (e) => {
-    if (state.isListening && e.error !== 'no-speech') {
-        logProctorViolation('MIC_ERROR', `Recognition error: ${e.error}`, 'error');
-        stopListeningAndSave(false, true); 
-        dom.questionText.innerHTML += '<p class="text-base font-bold text-red-600 mt-2">Recording interrupted! Click Next Question.</p>';
-    } else if (e.error === 'no-speech' && state.isListening) {
-        // Attempt to restart if no speech is detected (common Chrome issue)
-        logProctorViolation('MIC_SILENCE', 'No speech detected, recognition restarting.', 'info');
-        state.recognition.stop();
-        state.recognition.start();
-    }
-  };
-  
-  state.recognition.onend = () => {
-    dom.body.classList.remove('is-listening');
-    state.isListening = false;
-    // If recognition ends unexpectedly while we expected to be listening, log it.
-    if (currentView === 'interview' && !state.isTerminating && state.qIndex >= 0) {
-        logProctorViolation('MIC_UNEXPECTED_STOP', 'Recognition ended unexpectedly (Microphone disconnect/system issue).', 'warning');
-    }
-  };
-}
-
-async function nextQuestion(){
-  if (state.isListening && state.recognition){
-    try { state.recognition.stop(); } catch(e){}
-    state.isListening = false;
-    dom.body.classList.remove('is-listening');
-  }
-
-  if (state.qIndex >= state.questions.length - 1){
-    completeInterviewFlow();
-    return;
-  }
-  
-  state.qIndex++;
-  const q = state.questions[state.qIndex];
-  dom.questionText.innerHTML = `<span class="block text-base font-semibold text-primary mb-3">Question ${state.qIndex+1} of ${state.questions.length}</span>${q.text}`;
-  dom.answerBox.textContent = 'Awaiting transcription...';
-  
-  dom.startBtn.style.display = 'none';
-  dom.stopBtn.style.display = 'none';
-  dom.rerecordBtn.style.display = 'none';
-  dom.repeatBtn.disabled = true;
-  dom.skipBtn.disabled = true;
-  
-  await speak(q.text);
-  startListening();
-}
-
-function startListening(){
-  if (!state.recognition) return;
-  
-  dom.answerBox.textContent = 'Recording: Speak now...';
-  dom.answerBox.classList.add('font-bold', 'text-red-600', 'not-italic');
-
-  state.isListening = true;
-  state.recognition.start();
-  
-  dom.stopBtn.style.display = 'inline-block';
-  dom.stopBtn.disabled = false;
-  dom.startBtn.style.display = 'none'; 
-  dom.rerecordBtn.style.display = 'none';
-  dom.repeatBtn.disabled = false;
-  dom.skipBtn.disabled = false;
-  
-  dom.body.classList.add('is-listening');
-}
-
-function stopListeningAndSave(isSkip=false, isError=false){
-  if (state.isListening && state.recognition){
-    try { state.recognition.stop(); } catch(e){}
-    state.isListening = false;
-    dom.body.classList.remove('is-listening');
-  }
-  
-  dom.stopBtn.style.display = 'none';
-  
-  const q = state.questions[state.qIndex];
-  if (!q) return; 
-
-  let transcript = dom.answerBox.textContent.replace('Recording: Speak now...', '').trim() || '';
-  if (isSkip) {
-      transcript = '[SKIPPED]';
-      logProctorViolation('QUESTION_SKIPPED', `Question ${state.qIndex + 1} skipped.`, 'info');
-  }
-  if (isError) transcript += ' [INTERRUPTED]';
-  
-  if (!transcript && !isSkip) {
-      transcript = '[NO RESPONSE]'; 
-      logProctorViolation('NO_RESPONSE', `Question ${state.qIndex + 1} ended with no response.`, 'warning');
-  }
-  
-  const payload = {
-    question_id: q.id,
-    transcript: transcript,
-    duration_seconds: null, 
-    confidence: null
-  };
-  
-  apiPost(`/api/participants/${participant_id}/answer`, payload)
-  .catch(err=>console.error('Answer save failed:', err));
-  
-  dom.answerBox.textContent = transcript;
-  dom.answerBox.classList.remove('font-bold', 'text-red-600', 'italic');
-  dom.answerBox.classList.add('text-gray-700', 'font-medium', 'not-italic');
-  
-  dom.rerecordBtn.style.display = (isSkip || isError) ? 'none' : 'inline-block';
-  dom.startBtn.style.display = 'inline-block'; 
-  dom.startBtn.disabled = false;
-  dom.startBtn.innerHTML = '<i class="fas fa-forward mr-2"></i> Next Question';
-  dom.repeatBtn.disabled = false;
-  dom.skipBtn.disabled = false;
-  
-  if (state.qIndex >= state.questions.length - 1){
-    dom.startBtn.innerHTML = '<i class="fas fa-flag-checkered mr-2"></i> Complete';
-  }
-}
-
-// --- Event Listeners ---
-dom.startBtn.addEventListener('click', async () => {
-  if (state.questions.length === 0 || state.qIndex === -1){
-    // This button starts the first question
-    await nextQuestion();
-  } else if (state.qIndex >= state.questions.length - 1) {
-    // If it's the last question and we click next, finish the interview
-    completeInterviewFlow();
-  } else {
-    // Standard next question logic
-    await nextQuestion();
-  }
-});
-
-dom.stopBtn.addEventListener('click', () => {
-  stopListeningAndSave(false);
-});
-
-dom.rerecordBtn.addEventListener('click', async () => {
-  logProctorViolation('RERECORD', `Question ${state.qIndex + 1} re-recorded.`, 'info');
-
-  dom.rerecordBtn.style.display = 'none';
-  dom.startBtn.disabled = true;
-  dom.startBtn.style.display = 'none';
-  
-  dom.answerBox.textContent = 'Awaiting transcription...';
-  dom.answerBox.classList.remove('text-gray-700', 'font-medium', 'not-italic');
-  dom.answerBox.classList.add('italic', 'text-gray-600');
-  
-  if (state.recognition && state.isListening) {
-      try { state.recognition.stop(); } catch(e) {}
-  }
-  startListening();
-});
-
-dom.repeatBtn.addEventListener('click', () => { 
-  if (state.qIndex === -1 || !state.questions[state.qIndex]) return;
-  logProctorViolation('QUESTION_REPEAT', `Question ${state.qIndex + 1} repeated.`, 'info');
-  speak(state.questions[state.qIndex].text);
-});
-
-dom.skipBtn.addEventListener('click', () => {
-  stopListeningAndSave(true);
-  nextQuestion();
-});
-
-dom.endTestBtn.addEventListener('click', () => {
-    // Use custom confirm polyfill
-    if (window.confirm("Are you sure you want to end the test early? Type 'yes' to confirm.")) {
-        logProctorViolation('MANUAL_TERMINATION', 'Participant ended test manually.', 'info');
-        completeInterviewFlow();
-    }
-});
-
-// Polyfill for simple alert/confirm replacement
-window.confirm = (message) => {
-    return window.prompt(message + " Type 'yes' to confirm.") === 'yes';
-};
-window.alert = (message) => {
-    console.log(message);
-    prompt(message + " Click OK to continue."); 
-};
-
-
-// --- Initialization ---
-document.addEventListener('DOMContentLoaded', async ()=>{
+  // URL Check
   if (!token || !participant_id || !session_id) {
-    showView('details');
-    dom.sessionTitle.textContent = 'Invalid Link';
-    dom.nextToTestBtn.disabled = true;
+    dom.sessionTitle.innerText = "Error: Invalid Link";
+    dom.detailsError.innerText = "Missing parameters. Please use the link from your email.";
+    dom.detailsError.classList.remove('hidden');
+    dom.btnNextToTest.disabled = true;
     return;
   }
-  
-  dom.participantNameDisplay.textContent = participant_id.substring(0, 8) + '...';
+
+  // Load Session
+  try {
+    const res = await fetch(`${API_BASE}/api/sessions/${session_id}/info`);
+    if(res.ok) {
+      const data = await res.json();
+      dom.sessionTitle.innerText = data.title;
+    }
+  } catch(e) {
+    dom.sessionTitle.innerText = "Connection Error";
+    showToast("Backend not reachable", "error");
+  }
+});
+
+// --- STEP 1: DETAILS ---
+dom.btnNextToTest.addEventListener('click', async () => {
+  const name = dom.pName.value.trim();
+  if(!name) { showToast("Name is required"); return; }
+
+  dom.btnNextToTest.innerHTML = "Saving...";
+  dom.btnNextToTest.disabled = true;
 
   try {
-      const sessionInfo = await apiGet(`/api/sessions/${session_id}/info`);
-      dom.sessionTitle.textContent = sessionInfo.title || 'AI Interview';
+    await apiPost(`/api/participants/${participant_id}/profile`, {
+      name: name,
+      phone_number: dom.pPhone.value || null,
+      other_details: dom.pOther.value || null
+    });
+    dom.participantName.innerText = name;
+    showView('test');
   } catch(e) {
-      dom.sessionTitle.textContent = 'Error loading session';
-      dom.nextToTestBtn.disabled = true;
-      dom.detailsError.textContent = `Error: ${e.message}`;
-      dom.detailsError.classList.remove('hidden');
-      return;
+    showToast("Failed to save profile. Check backend.");
+    dom.btnNextToTest.disabled = false;
+    dom.btnNextToTest.innerHTML = "Continue ->";
   }
-  
-  showView('details');
 });
+
+// --- STEP 2: EQUIPMENT ---
+dom.btnTestAudio.addEventListener('click', () => {
+  const u = new SpeechSynthesisUtterance("Audio check successful.");
+  window.speechSynthesis.speak(u);
+});
+
+let micTestRec = null;
+dom.btnMicStart.addEventListener('click', () => {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  micTestRec = new SpeechRecognition();
+  micTestRec.continuous = true; 
+  micTestRec.interimResults = true;
+  
+  micTestRec.onstart = () => {
+    dom.micStatus.innerText = "Listening...";
+    dom.btnMicStart.classList.add('hidden');
+    dom.btnMicStop.classList.remove('hidden');
+  };
+  micTestRec.onresult = (e) => {
+    let t = '';
+    for(let i=e.resultIndex; i<e.results.length; i++) t += e.results[i][0].transcript;
+    dom.micTranscript.innerText = t;
+  };
+  micTestRec.start();
+});
+
+dom.btnMicStop.addEventListener('click', () => {
+  if(micTestRec) micTestRec.stop();
+  dom.micStatus.innerText = "Stopped";
+  dom.btnMicStart.classList.remove('hidden');
+  dom.btnMicStop.classList.add('hidden');
+  dom.checkMic.disabled = false;
+});
+
+function checkReady() {
+  dom.btnNextToInterview.disabled = !(dom.checkSpeaker.checked && dom.checkMic.checked);
+}
+dom.checkSpeaker.addEventListener('change', checkReady);
+dom.checkMic.addEventListener('change', checkReady);
+
+dom.btnNextToInterview.addEventListener('click', async () => {
+  dom.btnNextToInterview.innerHTML = "Starting...";
+  dom.btnNextToInterview.disabled = true;
+
+  try {
+    // Attempt Fullscreen
+    try { document.documentElement.requestFullscreen(); } catch(e){}
+
+    const data = await apiPost(`/api/sessions/${session_id}/start`, { token });
+    state.questions = data.questions;
+    state.remainingSeconds = (data.time_limit_minutes || 60) * 60;
+
+    // Start Timer
+    state.timerInterval = setInterval(() => {
+      state.remainingSeconds--;
+      const m = Math.floor(state.remainingSeconds/60);
+      const s = state.remainingSeconds%60;
+      dom.remainingTime.innerText = `${m}:${s<10?'0'+s:s}`;
+      if(state.remainingSeconds <= 0) finishInterview(true);
+    }, 1000);
+
+    setupRecognition();
+    showView('interview');
+    dom.btnStart.innerText = "Start Question 1";
+
+  } catch(e) {
+    alert("Error starting interview: " + e.message);
+    dom.btnNextToInterview.disabled = false;
+  }
+});
+
+// --- STEP 3: INTERVIEW LOGIC ---
+function setupRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  state.recognition = new SpeechRecognition();
+  state.recognition.continuous = true;
+  state.recognition.interimResults = true;
+
+  state.recognition.onstart = () => {
+    state.isListening = true;
+    dom.body.classList.add('is-listening');
+  };
+  state.recognition.onend = () => {
+    state.isListening = false;
+    dom.body.classList.remove('is-listening');
+    // Auto-restart if expected to be listening
+    if(dom.btnStop.style.display !== 'none' && !state.isTerminating) {
+      try { state.recognition.start(); } catch(e){}
+    }
+  };
+  state.recognition.onresult = (e) => {
+    let final = '';
+    let interim = '';
+    for(let i=e.resultIndex; i<e.results.length; i++) {
+      if(e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    // Append final to dataset, show combined
+    const prev = dom.answerBox.dataset.prev || '';
+    if(final) dom.answerBox.dataset.prev = prev + final + ' ';
+    dom.answerBox.innerText = (dom.answerBox.dataset.prev || '') + interim;
+  };
+}
+
+dom.btnStart.addEventListener('click', nextQuestion);
+
+async function nextQuestion() {
+  // If finishing
+  if(state.qIndex >= state.questions.length - 1) {
+    finishInterview();
+    return;
+  }
+
+  // Increment
+  state.qIndex++;
+  const q = state.questions[state.qIndex];
+
+  // Update UI
+  dom.questionText.innerText = `Q${state.qIndex+1}: ${q.text}`;
+  dom.answerBox.innerText = "Listening...";
+  dom.answerBox.dataset.prev = ""; // Clear previous answer context
+  dom.btnStart.classList.add('hidden');
+  dom.btnStop.classList.remove('hidden');
+
+  // Speak & Listen
+  const u = new SpeechSynthesisUtterance(q.text);
+  u.onend = () => {
+    try { state.recognition.start(); } catch(e){}
+  };
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+}
+
+dom.btnStop.addEventListener('click', async () => {
+  // Stop Listening
+  state.recognition.stop();
+  dom.btnStop.classList.add('hidden');
+  dom.btnStart.classList.remove('hidden');
+
+  // Save Answer
+  const answer = dom.answerBox.innerText;
+  const qId = state.questions[state.qIndex].id;
+
+  // Fire and forget save
+  apiPost(`/api/participants/${participant_id}/answer`, {
+    question_id: qId,
+    transcript: answer
+  }).catch(e => console.error("Save failed", e));
+
+  // Prepare next button
+  if(state.qIndex >= state.questions.length - 1) {
+    dom.btnStart.innerText = "Finish Interview";
+    dom.btnStart.classList.replace('bg-primary', 'bg-green-600');
+    dom.btnStart.classList.replace('hover:bg-primary-dark', 'hover:bg-green-700');
+  } else {
+    dom.btnStart.innerText = "Next Question";
+  }
+});
+
+// --- FAIL-SAFE END TEST LOGIC ---
+
+dom.btnEndTest.addEventListener('click', async () => {
+  // 1. Proper Alert System
+  const confirmEnd = confirm("Are you sure you want to end the test?\n\nThis will submit your current progress and you cannot return.");
+  if(!confirmEnd) return;
+
+  // 2. Trigger Completion
+  await finishInterview();
+});
+
+async function finishInterview(isTimeout=false) {
+  if(state.isTerminating) return;
+  state.isTerminating = true;
+
+  // Stop Timers/Mic
+  clearInterval(state.timerInterval);
+  if(state.recognition) state.recognition.stop();
+  if(document.fullscreenElement) document.exitFullscreen();
+
+  dom.btnEndTest.innerHTML = "Finishing...";
+  dom.btnEndTest.disabled = true;
+
+  try {
+    // 3. Automated Evaluation Trigger
+    // We attempt to tell the backend to mark complete and start AI grading
+    await apiPost(`/api/participants/${participant_id}/complete`, {});
+    console.log("Backend notified of completion.");
+  } catch(e) {
+    console.error("Backend save failed, but forcing UI close:", e);
+    // We proceed anyway so the user doesn't get stuck
+  } finally {
+    // 4. Force Next View (Fail-Safe)
+    showView('complete');
+  }
+}
+
 </script>
 </body>
 </html>

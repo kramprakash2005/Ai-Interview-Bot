@@ -1,31 +1,8 @@
-# backend/main.py
-"""
-Backend for AI Interview Bot (dev-friendly).
-- Loads .env (python-dotenv)
-- Robust email sending (STARTTLS, skip login if server doesn't advertise AUTH)
-- Redirect endpoint /participant_start to forward to frontend participant UI
-- Bulk invite uses FRONTEND_PARTICIPANT_URL from env (or falls back to backend redirect link)
-
-FIXES APPLIED:
-1. Returns session time limit in /start response.
-2. Prevents duplicate invites for the same session/email.
-3. Prevents re-entry for completed participants.
-4. Added /complete endpoint to finalize status.
-5. Email now uses HTML for better formatting.
-6. FIX: Corrected typo in bulk_invite link generation.
-7. NEW: Added ParticipantProfileUpdate endpoint to save candidate details.
-8. NEW: Added public session info endpoint for participant UI.
-9. NEW: Implemented OTP login flow (/auth/send_otp, /auth/verify_otp).
-10. NEW: Organization field added to registration and stored in user doc.
-11. FIX: Robust JWT decoding in get_current_user.
-12. NEW: Enhanced HTML Email Template with Organization, Job Title, and Description.
-13. NEW: Enhanced OTP Email Template for a professional look.
-14. NEW: Added Session Delete/Metrics functionality.
-"""
-
 import os
 import time
 import random 
+import requests 
+import json 
 from datetime import datetime, timedelta
 from typing import List, Optional
 from email.message import EmailMessage
@@ -59,11 +36,16 @@ SMTP_PASS = os.getenv("SMTP_PASS", "") or None
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER or "no-reply@aiinterview.local")
 
 OTP_EXPIRE_MINUTES = 5 
+FRONTEND_PARTICIPANT_URL = os.getenv("FRONTEND_PARTICIPANT_URL", "http://localhost:5500/frontend/participant_interview.html") 
 
-# Where the participant frontend page is hosted (used when building invite links)
-FRONTEND_PARTICIPANT_URL = os.getenv("FRONTEND_PARTICIPANT_URL", "") 
-
+# Gemini Config (Real Use)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent" 
 # ----------------------------------------
+
+# NEW: Security check for JWT secret
+if JWT_SECRET == "change_this_secret_in_prod":
+    raise Exception("SECURITY ERROR: Please change JWT_SECRET in your .env file before running the server.")
 
 app = FastAPI(title="AI Interview Bot Backend (dev)")
 app.add_middleware(
@@ -137,6 +119,40 @@ class ParticipantProfileUpdate(BaseModel):
     phone_number: Optional[str] = None
     other_details: Optional[str] = None
 
+# NEW: Evaluation Models (for mock and Gemini structure)
+class SkillScore(BaseModel):
+    skill: str
+    score: int
+    rationale: str
+
+class EvaluationSummary(BaseModel):
+    overall_score: int = Field(..., ge=1, le=100)
+    summary: str
+    skill_scores: List[SkillScore]
+    red_flags: List[str]
+    follow_up_questions: List[str]
+
+class GeminiSchema(BaseModel):
+    type: str = "OBJECT"
+    properties: dict = {
+        "overall_score": {"type": "INTEGER", "description": "Final score out of 100."},
+        "summary": {"type": "STRING", "description": "Concise summary and hiring recommendation."},
+        "skill_scores": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "skill": {"type": "STRING"},
+                    "score": {"type": "INTEGER", "description": "Score from 1 to 10."},
+                    "rationale": {"type": "STRING"}
+                }
+            }
+        },
+        "red_flags": {"type": "ARRAY", "items": {"type": "STRING"}},
+        "follow_up_questions": {"type": "ARRAY", "items": {"type": "STRING"}}
+    }
+
+
 # ---------------- Utilities ----------------
 def hash_password(password: str) -> str:
     return argon2.hash(password)
@@ -187,7 +203,6 @@ def get_current_user(request: Request):
         print(f"JWT Decoding Error: {e}")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     except ValueError:
-        # Handles case where auth.split() fails (e.g., header only contains token, no scheme)
         raise HTTPException(status_code=401, detail="Invalid Authorization header format. Must be 'Bearer <token>'")
     except Exception as e:
         print(f"Auth Error: {e}")
@@ -285,13 +300,12 @@ def _send_otp_email_sync(to_email: str, otp: str):
                 smtp.starttls()
                 smtp.ehlo()
             except Exception as e:
-                print("[OTP EMAIL] STARTTLS not available or failed:", e)
+                pass
             
             if user and pwd:
                 try:
                     smtp.login(user, pwd)
                 except Exception as e:
-                    print("[OTP EMAIL] login failed:", type(e).__name__, e)
                     raise
             
             smtp.send_message(msg)
@@ -630,14 +644,157 @@ def update_participant_profile(participant_id: str, profile: ParticipantProfileU
         
     return {"msg": "profile updated"}
 
-# ---------------- Redirect endpoint (optional) ----------------
-@app.get("/participant_start")
-def participant_start_redirect(token: str, participant_id: str, session_id: str):
-    if FRONTEND_PARTICIPANT_URL:
-        redirect_url = f"{FRONTEND_PARTICIPANT_URL}?token={token}&participant_id={participant_id}&session_id={session_id}"
+# ---------------- Gemini Evaluation (Real API Call) ----------------
+def call_gemini_evaluation(prompt: str, schema: dict):
+    """
+    Executes the call to the Gemini API with structured output requirements.
+    """
+    if not GEMINI_API_KEY:
+        print("ERROR: GEMINI_API_KEY is missing. AI evaluation cannot proceed.")
+        raise HTTPException(status_code=503, detail="AI Evaluation Service Unavailable: GEMINI_API_KEY not configured in backend.")
+    
+    headers = {"Content-Type": "application/json"}
+    api_url = f"{GEMINI_API_URL}?key={GEMINI_API_KEY}"
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": schema
+        }
+    }
+    
+    print("--- Sending Prompt to Gemini ---")
+    
+    try:
+        response = requests.post(api_url, headers=headers, data=json.dumps(payload))
+        response.raise_for_status() 
+        
+        result = response.json()
+        
+        if (result.get('candidates') and result['candidates'][0].get('content') and 
+            result['candidates'][0]['content'].get('parts')):
+            
+            json_text = result['candidates'][0]['content']['parts'][0]['text']
+            return json.loads(json_text)
+        else:
+            print(f"Gemini Response Structure Invalid: {result}")
+            raise HTTPException(status_code=500, detail="AI returned invalid structured output.")
+
+    except requests.exceptions.RequestException as e:
+        print(f"Gemini API Request Error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI Evaluation Service Failed: {e}")
+    except Exception as e:
+        print(f"Evaluation Processing Error: {e}")
+        raise HTTPException(status_code=500, detail=f"AI Evaluation Processing Failed.")
+
+
+def _perform_evaluation_sync(participant_id: str):
+    """Performs the full evaluation process synchronously (intended for BackgroundTasks)."""
+    
+    p = db.participants.find_one({"_id": participant_id})
+    if not p: return
+
+    sess = db.sessions.find_one({"_id": p['session_id']})
+    if not sess: return
+    
+    # Check if already evaluated to prevent redundant processing
+    if p.get("is_evaluated"): return
+
+    # Fetch user data to get organization name for context
+    user = db.users.find_one({"_id": sess['owner_id']})
+    
+    answers = list(db.answers.find({"participant_id": participant_id}))
+    questions = list(db.questions.find({"session_id": p['session_id']}).sort("order"))
+    
+    if not answers:
+        # Cannot evaluate without answers
+        db.participants.update_one({"_id": participant_id}, {"$set": {"evaluation_status": "NO_ANSWERS"}})
+        return
+        
+    q_map = {q['_id']: q['text'] for q in questions}
+    
+    # 1. Build Comprehensive Context Prompt
+    prompt_context = f"""
+    You are a Senior Technical Interviewer hired by {user.get('organization', 'Organization X') if user else 'Organization X'}.
+    Your task is to evaluate a candidate based on their responses to an interview session.
+    
+    --- CONTEXT ---
+    Job Role: {sess.get('title', 'N/A')}
+    Job Description: {sess.get('description', 'N/A')}
+    Participant: {p.get('name') or p['email']}
+    
+    --- CANDIDATE RESPONSES ---
+    """
+        
+    for i, answer in enumerate(answers):
+        q_text = q_map.get(answer['question_id'], f"Unknown Question {i+1}")
+        prompt_context += f"""
+        Q{i+1}. Question: {q_text}
+        A{i+1}. Transcript: {answer['transcript']}
+        ---
+        """
+
+    system_instruction = """
+    Analyze the candidate's responses against the Job Role and Job Description.
+    Provide an objective, structured evaluation in the required JSON format.
+    Focus on clarity, technical accuracy, and relevance.
+    """
+    
+    try:
+        # 2. Get Structured Evaluation (Real API Call)
+        evaluation_result = call_gemini_evaluation(
+            prompt=system_instruction + prompt_context,
+            schema=GeminiSchema().dict(by_alias=True) 
+        )
+
+        # 3. Save Evaluation Summary
+        db.participants.update_one(
+            {"_id": participant_id},
+            {"$set": {
+                "evaluation_summary": evaluation_result,
+                "is_evaluated": True,
+                "evaluated_at": datetime.utcnow()
+            }}
+        )
+        print(f"Evaluation complete for participant {participant_id}")
+
+    except HTTPException as e:
+        # Log failure reason to DB for debugging
+        db.participants.update_one(
+            {"_id": participant_id},
+            {"$set": {"evaluation_status": f"FAILED: {e.detail}", "is_evaluated": False}}
+        )
+        print(f"Evaluation failed for participant {participant_id}: {e.detail}")
+    except Exception as e:
+        db.participants.update_one(
+            {"_id": participant_id},
+            {"$set": {"evaluation_status": f"CRITICAL_FAIL: {str(e)}", "is_evaluated": False}}
+        )
+
+@app.post("/api/participants/{participant_id}/evaluate", response_model=EvaluationSummary)
+def evaluate_participant(participant_id: str, current=Depends(get_current_user)):
+    """
+    Endpoint removed from dashboard flow, but kept for direct debugging/re-run capability if needed.
+    """
+    p = db.participants.find_one({"_id": participant_id})
+    if not p:
+        raise HTTPException(404, "Participant not found")
+        
+    if p.get("evaluation_summary"):
+        return EvaluationSummary(**p["evaluation_summary"])
+
+    # Trigger synchronous evaluation for direct API calls
+    _perform_evaluation_sync(participant_id)
+    p_updated = db.participants.find_one({"_id": participant_id})
+    
+    if p_updated.get("evaluation_summary"):
+        return EvaluationSummary(**p_updated["evaluation_summary"])
+    elif p_updated.get("evaluation_status"):
+        raise HTTPException(400, detail=f"Evaluation failed: {p_updated['evaluation_status']}")
     else:
-        redirect_url = f"/api/sessions/{session_id}/start?token={token}"
-    return RedirectResponse(url=redirect_url)
+        raise HTTPException(500, detail="Evaluation is running asynchronously or failed to start.")
+
 
 # ---------------- Participant start & answer submission ----------------
 @app.post("/api/sessions/{session_id}/start", response_model=ParticipantStartResponse)
@@ -671,31 +828,63 @@ def submit_answer(participant_id: str, payload: AnswerPayload):
     participant = db.participants.find_one({"_id": participant_id})
     if not participant:
         raise HTTPException(status_code=404, detail="Participant not found")
-    doc = {
-        "_id": str(time.time_ns()),
+    
+    if participant.get("is_evaluated"):
+        raise HTTPException(400, "Cannot submit answers; evaluation has already been finalized.")
+        
+    # --- FIX: Use Update/Upsert instead of Insert to replace existing answers ---
+    
+    # 1. Define the unique filter (Participant + Question)
+    filter_query = {
         "participant_id": participant_id,
-        "question_id": payload.question_id,
-        "transcript": payload.transcript,
-        "duration_seconds": payload.duration_seconds,
-        "confidence": payload.confidence,
-        "created_at": datetime.utcnow()
+        "question_id": payload.question_id
     }
-    db.answers.insert_one(doc)
-    return {"answer_id": doc["_id"]}
+
+    # 2. Define the document to set/replace
+    update_fields = {
+        # Using $set to update fields and ensuring creation of an _id only if document is new
+        "$set": {
+            "transcript": payload.transcript,
+            "duration_seconds": payload.duration_seconds,
+            "confidence": payload.confidence,
+            "created_at": datetime.utcnow()
+        },
+        # Ensure the unique ID is set if this is the first time the answer is saved (upsert)
+        "$setOnInsert": {
+            "_id": str(time.time_ns()) # Use a unique ID generator for the document itself
+        }
+    }
+
+    # 3. Perform the upsert operation
+    db.answers.update_one(
+        filter_query,
+        update_fields,
+        upsert=True
+    )
+    
+    # We do not return the document ID as it might be an update, but we confirm success.
+    return {"msg": "Answer saved/updated"}
+    # --- END FIX ---
+
 
 @app.post("/api/participants/{participant_id}/complete")
-def complete_interview(participant_id: str):
+def complete_interview(participant_id: str, background_tasks: BackgroundTasks):
     """
-    Endpoint to mark the interview as completed.
+    Endpoint to mark the interview as completed and trigger asynchronous evaluation.
     """
+    update_fields = {"completed_at": datetime.utcnow(), "status": "completed"}
+    
     result = db.participants.update_one(
         {"_id": participant_id}, 
-        {"$set": {"completed_at": datetime.utcnow(), "status": "completed"}}
+        {"$set": update_fields}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Participant not found")
         
-    return {"msg": "completed"}
+    # Trigger AI Evaluation as a background task
+    background_tasks.add_task(_perform_evaluation_sync, participant_id)
+
+    return {"msg": "completed, evaluation started"}
 
 # ---------------- Proctor logs ----------------
 @app.post("/api/proctor/logs")
@@ -729,6 +918,8 @@ def session_results(session_id: str, current=Depends(get_current_user)):
     
     participants = []
     for p in db.participants.find({"session_id": session_id}):
+        # FIX: When fetching answers, we automatically get only the unique/latest answer 
+        # because the upsert ensures only one document per (participant_id, question_id) pair exists.
         answers = list(db.answers.find({"participant_id": p["_id"]}))
         logs = list(db.proctor_logs.find({"participant_id": p["_id"]}))
         

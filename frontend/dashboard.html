@@ -237,7 +237,7 @@
 
       <!-- VIEW 3: Single Invite -->
       <div id="view-single-invite" class="view-content hidden">
-        <button id="single-invite-back-btn" class="mb-6 text-primary hover:text-primary-dark font-semibold transition flex items-center group">
+        <button id="single-invite-back-btn" class="mb-6 text-primary hover:text-primary-dark font-semibold transition flex items-center group" onclick="document.querySelector('[data-view=sessions]').click()">
           <i class="fas fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> Back to Sessions
         </button>
                 
@@ -268,7 +268,8 @@
         <button id="back-to-sessions-btn" class="mb-6 text-primary hover:text-primary-dark font-semibold transition flex items-center group">
           <i class="fas fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> Back to Sessions
         </button>
-        <div id="results-area"></div>
+        <!-- Dynamic container for results sub-views -->
+        <div id="results-area"></div> 
       </div>
     </main>
   </div>
@@ -278,7 +279,8 @@ const API_BASE = "http://localhost:8000";
 let currentPage = 'sessions'; 
 let questionMap = {}; 
 let sessionDataCache = {};
-let stagedQuestions = [];
+let participantDataCache = {}; 
+let stagedQuestions = []; // <-- FIX: Initialized stagedQuestions array
 
 function getToken(){ return localStorage.getItem('ai_token'); }
 function logout(){ localStorage.removeItem('ai_token'); window.location.href = 'auth_hub.html'; }
@@ -337,7 +339,7 @@ async function apiJSON(path, opts = {}) {
 }
 
 // --- View Switching Logic ---
-function renderView(viewName, sessionId = null) {
+function renderView(viewName, sessionId = null, participantId = null, subView = 'list') {
     currentPage = viewName;
     document.querySelectorAll('.view-content').forEach(el => el.classList.add('hidden'));
         
@@ -359,8 +361,9 @@ function renderView(viewName, sessionId = null) {
     } else if (viewName === 'single-invite' && sessionId) {
         setupSingleInvite(sessionId);
     } else if (viewName === 'results' && sessionId) {
-        document.getElementById('results-area').innerHTML = ''; 
-        showResultsDetail(sessionId);
+        // Main results view handler
+        // If participantId or subView is provided, navigate to the specific detail
+        showResultsDetail(sessionId, participantId, subView); 
     }
 }
 
@@ -381,7 +384,7 @@ document.getElementById('single-invite-back-btn').addEventListener('click', () =
 document.getElementById('add-question-btn').addEventListener('click', ()=>{
   const t = document.getElementById('new-question').value.trim();
   if(!t){ showToast('Question text required', 'error'); return; }
-  stagedQuestions.push({ text: t, time_limit_seconds: 120, weight:1 });
+  stagedQuestions.push({ text: t, time_limit_seconds: 120, weight:1 }); 
   renderStagedQuestions();
   document.getElementById('new-question').value='';
 });
@@ -481,7 +484,6 @@ async function loadSessions(){
   container.innerHTML = `<div class="col-span-full skeleton h-48 rounded-2xl"></div>`; 
 
   try{
-    // The backend now returns metrics directly in the list_sessions response
     const rows = await apiJSON('/api/sessions');
     sessionDataCache = rows.reduce((acc, s) => { acc[s._id] = s; return acc; }, {});
         
@@ -501,13 +503,12 @@ async function loadSessions(){
       const endDateText = s.end_date ? new Date(s.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'No deadline';
       
       const m = s.metrics || { invited: 0, started: 0, completed: 0, total: 0 };
-      const completionRate = m.total > 0 ? ((m.completed / m.total) * 100).toFixed(0) : 0;
 
       card.innerHTML = `
         <div>
             <div class="flex items-start justify-between mb-3">
                 <h4 class="text-xl font-bold text-gray-800 flex-1 pr-2">${s.title}</h4>
-                <div class="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center flex-shrink-0">
+                <div class="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center mr-3 shadow-lg flex-shrink-0">
                     <i class="fas fa-briefcase text-white"></i>
                 </div>
             </div>
@@ -576,7 +577,7 @@ async function handleDeleteSession(event) {
     const sessionId = event.currentTarget.getAttribute('data-id');
     const sessionTitle = event.currentTarget.getAttribute('data-title');
     
-    // FIX: Using the correct window.confirm polyfill for iframe safety
+    // Using the custom window.confirm polyfill for iframe safety
     if (!window.confirm(`Are you sure you want to permanently delete the session: "${sessionTitle}" and ALL associated participant data (answers, logs, etc.)? Type 'yes' to confirm.`)) {
         return;
     }
@@ -650,7 +651,7 @@ document.getElementById('send-single-invites-btn').addEventListener('click', asy
 });
 
 
-// --- Results Logic (View 4) ---
+// --- Results Logic (View 4 - Multi-View) ---
 async function loadQuestionMap(sessionId) {
     try {
         const questions = await apiJSON(`/api/sessions/${sessionId}/questions`);
@@ -673,143 +674,334 @@ function getStatusClass(status) {
     }
 }
 
-async function showResultsDetail(sessionId){
-  try{
-    const area = document.getElementById('results-area');
-    area.innerHTML = `
-      <div class="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50">
-        <h3 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4 flex items-center">
-            <i class="fas fa-spinner fa-spin mr-3 text-primary"></i> Loading Results...
-        </h3>
-        <p class="text-gray-600">Fetching session details, answers, and logs...</p>
-      </div>
-    `;
-    
-    await loadQuestionMap(sessionId); 
-    
-    const data = await apiJSON(`/api/sessions/${sessionId}/results`);
-    renderResults(data);
-  } catch(e){ 
-    document.getElementById('results-area').innerHTML = `
-        <div class="bg-white/80 p-8 rounded-3xl shadow-xl border border-red-200">
-             <h3 class="text-3xl font-bold text-red-600 mb-4 border-b pb-4"><i class="fas fa-exclamation-triangle mr-3"></i> Failed to Load Results</h3>
-             <p class="text-red-500">Error: ${e.message}</p>
-        </div>
-    `;
-    showToast('Failed to load results.', 'error');
-  }
+function getEvaluationSummaryScoreHtml(participant) {
+    if (participant.evaluation_summary) {
+        const score = participant.evaluation_summary.overall_score || 0;
+        const color = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-yellow-500' : 'bg-red-500';
+        return `<span class="px-3 py-1 text-xs font-bold rounded-full ${color} text-white shadow-md">${score}/100</span>`;
+    } else if (participant.status === 'completed' || participant.status === 'TERMINATED') {
+        // Participant completed but evaluation is still running or failed.
+        // It's possible the backend's async task failed due to missing GEMINI_API_KEY.
+        return `<span class="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-600 shadow-sm"><i class="fas fa-sync fa-spin mr-1"></i> Evaluating...</span>`;
+    } else {
+        return `<span class="px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-500 shadow-sm">N/A</span>`;
+    }
 }
 
-function renderResults(data){
-  const area = document.getElementById('results-area'); area.innerHTML='';
-  const sessionTitle = data.session.title;
-  
-  // Outer Container
-  const container = document.createElement('div'); container.className='mb-8';
-  container.innerHTML = `
-    <h2 class="text-4xl font-bold text-gray-800 mb-2">Results: ${sessionTitle}</h2>
-    <p class="text-gray-600 mb-8">Detailed review of participant performance and proctoring data.</p>
-  `;
-  area.appendChild(container);
-
-  // Results Card Wrapper
-  const card = document.createElement('div'); 
-  card.className='bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50';
-
-  if (data.participants.length === 0) {
-      card.innerHTML += '<p class="text-gray-500 italic text-center py-8">No participants have started this session yet.</p>';
-      area.appendChild(card);
-      return;
-  }
-
-  data.participants.forEach(pwrap=>{
-    const p = pwrap.participant;
-    const statusClass = getStatusClass(p.status);
+function filterCandidates() {
+    const statusFilter = document.getElementById('status-filter').value;
+    const scoreFilter = parseInt(document.getElementById('score-filter').value) || 0;
     
-    const box = document.createElement('div'); 
-    box.className = 'border border-gray-200 p-5 rounded-xl shadow-md mb-6 bg-white hover:shadow-xl transition duration-300';
-    
-    // --- Proctoring Summary Calculation ---
-    const metrics = pwrap.violation_metrics || {};
-    const totalViolations = (metrics.FOCUS_LOST || 0) + (metrics.TAB_SWITCH || 0) + (metrics.FULLSCREEN_EXIT || 0);
-    const terminated = metrics.SESSION_TERMINATED > 0;
-
-    let summaryClass = 'bg-green-100 text-green-700 border-green-300';
-    let summaryIcon = 'fas fa-shield-alt';
-    let summaryText = 'High Integrity';
-
-    if (terminated) {
-        summaryClass = 'bg-red-100 text-red-700 border-red-300';
-        summaryIcon = 'fas fa-skull-crossbones';
-        summaryText = 'TERMINATED (Max Violations)';
-    } else if (totalViolations >= 3) {
-        summaryClass = 'bg-yellow-100 text-yellow-700 border-yellow-300';
-        summaryIcon = 'fas fa-exclamation-triangle';
-        summaryText = `Medium Risk (${totalViolations} Violations)`;
-    } else if (totalViolations > 0) {
-        summaryClass = 'bg-yellow-50 text-yellow-600 border-yellow-200';
-        summaryIcon = 'fas fa-exclamation-circle';
-        summaryText = `Low Risk (${totalViolations} Minor Events)`;
-    }
-
-
-    let answersHtml = '';
-    for(const a of pwrap.answers){
-      const qText = questionMap[a.question_id] || `Question ID: ${a.question_id}`; 
-      answersHtml += `
-        <div class="border-l-4 border-primary/50 bg-indigo-50/30 p-3 rounded-md mb-3">
-          <strong class="text-sm text-primary">Q:</strong> <span class="text-gray-700 text-sm">${qText}</span> <br>
-          <strong class="text-sm text-gray-800 mt-1 block">Transcript:</strong> 
-          <p class="text-gray-600 text-sm italic whitespace-pre-wrap">${a.transcript || '(No transcript recorded/Skipped)'}</p>
-        </div>
-      `;
-    }
-    
-    let logsHtml = '';
-    if (pwrap.proctor_logs.length > 0) {
-        logsHtml += '<div class="mt-4"><button data-id="logs-detail-' + p._id + '" class="text-xs text-primary hover:text-primary-dark font-semibold transition" onclick="document.getElementById(\'logs-detail-' + p._id + '\').classList.toggle(\'hidden\'); this.textContent = this.textContent.includes(\'Show\') ? \'Hide Detailed Logs\' : \'Show Detailed Logs\';">Show Detailed Logs</button></div>';
-
-        logsHtml += '<div id="logs-detail-' + p._id + '" class="hidden bg-red-50 p-4 rounded-xl mt-3 border border-red-200">';
-        logsHtml += '<strong class="text-red-700 block mb-2 text-sm flex items-center"><i class="fas fa-bell mr-2 text-red-500"></i> All Proctoring Events:</strong><ul class="space-y-1 text-xs">';
-        for(const l of pwrap.proctor_logs){
-            const severityClass = l.severity === 'error' ? 'text-red-600 font-semibold' : 'text-gray-600';
-            logsHtml += `<li class="${severityClass} border-b border-red-100 last:border-b-0 pb-1">
-                <span class="font-mono text-gray-500">${new Date(l.timestamp).toLocaleTimeString()}</span> — 
-                <span class="uppercase">${l.type}</span>: ${l.detail || ''}
-            </li>`;
+    document.querySelectorAll('.candidate-item').forEach(item => {
+        const pId = item.getAttribute('data-pid');
+        const p = participantDataCache[pId].participant;
+        
+        const candidateStatus = p.status;
+        const candidateScore = p.evaluation_summary ? p.evaluation_summary.overall_score : -1;
+        
+        let showStatus = true;
+        let showScore = true;
+        
+        // Filter by Status
+        if (statusFilter !== 'all') {
+            if (statusFilter === 'completed_evaluated' && (!p.evaluation_summary || p.status !== 'completed')) {
+                showStatus = false;
+            } else if (statusFilter === 'in_progress' && p.status !== 'started' && !p.evaluation_summary) {
+                showStatus = false;
+            } else if (statusFilter === 'not_started' && p.status !== 'invited') {
+                showStatus = false;
+            }
         }
-        logsHtml += '</ul></div>';
+
+        // Filter by Score
+        if (scoreFilter > 0) {
+            showScore = candidateScore >= scoreFilter;
+        }
+
+        if (showStatus && showScore) {
+            item.classList.remove('hidden');
+        } else {
+            item.classList.add('hidden');
+        }
+    });
+}
+
+
+function renderEvaluationSummary(evaluation) {
+    if (!evaluation || evaluation.overall_score === undefined) return '';
+
+    const scoreColor = evaluation.overall_score >= 80 ? 'text-green-600' : evaluation.overall_score >= 60 ? 'text-yellow-600' : 'text-red-600';
+    
+    let skillsHtml = evaluation.skill_scores.map(s => `
+        <div class="p-3 bg-white rounded-lg border border-gray-100 flex justify-between items-center">
+            <span class="font-semibold text-gray-700">${s.skill}</span>
+            <div class="flex items-center space-x-2">
+                <span class="text-sm font-bold text-primary">${s.score}/10</span>
+            </div>
+        </div>
+    `).join('');
+
+    let redFlagsHtml = evaluation.red_flags.map(f => `<li class="text-red-500"><i class="fas fa-flag mr-2 text-red-400"></i>${f}</li>`).join('');
+    let followUpHtml = evaluation.follow_up_questions.map(f => `<li class="text-gray-600"><i class="fas fa-question-circle mr-2 text-primary"></i>${f}</li>`).join('');
+
+
+    return `
+        <div class="mb-6 border-2 border-primary/20 rounded-xl bg-indigo-50/50 p-5 shadow-inner">
+            <h4 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                <i class="fas fa-brain mr-2 text-primary"></i> AI Evaluation Report
+            </h4>
+
+            <div class="grid md:grid-cols-3 gap-4 mb-4">
+                <div class="col-span-full md:col-span-1 p-4 rounded-xl bg-primary-dark text-white text-center shadow-lg">
+                    <div class="text-sm opacity-80">Overall Score</div>
+                    <div class="text-4xl font-extrabold">${evaluation.overall_score}<span class="text-base font-medium">/100</span></div>
+                </div>
+                <div class="col-span-full md:col-span-2 p-4 rounded-xl bg-white shadow-md">
+                    <p class="font-semibold text-gray-800 mb-2">Summary:</p>
+                    <p class="text-gray-600 text-sm">${evaluation.summary}</p>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+                <!-- Skill Breakdown -->
+                <div>
+                    <p class="font-semibold text-gray-800 mb-2 flex items-center"><i class="fas fa-medal mr-2 text-accent"></i> Skill Breakdown:</p>
+                    <div class="space-y-2">${skillsHtml}</div>
+                </div>
+
+                <!-- Red Flags / Follow-up -->
+                <div>
+                    <p class="font-semibold text-gray-800 mb-2 flex items-center"><i class="fas fa-hand-point-right mr-2 text-red-500"></i> Action Items:</p>
+                    <ul class="list-none space-y-1 text-sm">
+                        ${redFlagsHtml}
+                        ${followUpHtml}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function showEvaluationDetail(sessionId, participantId) {
+    const pwrap = participantDataCache[participantId];
+    if (!pwrap) { 
+        document.getElementById('results-area').innerHTML = '<div class="text-red-500 italic mt-4">Participant data not found in cache. Please go back and try again.</div>';
+        showToast('Participant data not found!', 'error'); 
+        return; 
+    }
+    
+    const evaluation = pwrap.participant.evaluation_summary;
+
+    let content;
+    if (evaluation) {
+        content = renderEvaluationSummary(evaluation);
     } else {
-        logsHtml = '<div class="text-xs text-gray-400 mt-2 p-2 bg-gray-50/50 rounded-md border border-gray-100 flex items-center"><i class="fas fa-shield-alt mr-2"></i> No proctoring logs recorded.</div>';
+        content = `
+            <div class="p-8 text-center bg-yellow-50 rounded-xl border-2 border-yellow-300">
+                <i class="fas fa-sync fa-spin text-4xl text-yellow-500 mb-4"></i>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">Evaluation In Progress</h3>
+                <p class="text-gray-600">The AI evaluation is running asynchronously (check backend logs for status). Please go back to the candidate list and click the Scorecard button again to refresh.</p>
+            </div>
+        `;
     }
 
-    box.innerHTML = `
-      <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
-        <div class="flex-1 min-w-0">
-             <strong class="text-xl font-extrabold text-gray-800 truncate block">${p.name || p.email}</strong>
-             <span class="text-sm text-gray-500 flex items-center"><i class="fas fa-envelope mr-1 w-4 text-primary"></i> ${p.email}</span>
-        </div>
-        <span class="px-3 py-1 text-xs font-bold rounded-full border ${statusClass} shadow-sm">${p.status.toUpperCase()}</span> 
-      </div>
-      
-      <!-- Proctoring Summary -->
-      <div class="p-3 mb-4 rounded-xl border-2 ${summaryClass} flex items-center justify-between">
-        <span class="font-semibold text-sm flex items-center">
-            <i class="${summaryIcon} mr-2"></i> Proctoring Status:
-        </span>
-        <span class="font-extrabold text-sm">${summaryText}</span>
-      </div>
-
-      <div class="mb-4">
-        <h4 class="text-md font-semibold text-gray-800 mb-3 flex items-center border-b border-gray-100 pb-2"><i class="fas fa-microphone-alt mr-2 text-primary"></i> Recorded Answers (${pwrap.answers.length}):</h4>
-        ${answersHtml || '<p class="text-gray-400 italic text-sm">Participant has not submitted any answers yet.</p>'}
-      </div>
-      ${logsHtml}
+    document.getElementById('results-area').innerHTML = `
+        <button onclick="renderView('results', '${sessionId}', null, 'list')" class="mb-6 text-primary hover:text-primary-dark font-semibold transition flex items-center group">
+          <i class="fas fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> Back to Candidate List
+        </button>
+        <h2 class="text-3xl font-bold text-gray-800 mb-6">Detailed Evaluation</h2>
+        ${content}
     `;
-    card.appendChild(box);
-  });
-  card.appendChild(document.createElement('hr')); // Add a divider between participants
-  area.appendChild(card);
+}
+
+function renderTranscriptLogs(participant, logs, answers) {
+    const sessionId = participant.session_id;
+    const pId = participant._id;
+
+    let answersHtml = answers.map((a, i) => {
+        const qText = questionMap[a.question_id] || `Question ID: ${a.question_id}`; 
+        return `
+            <div class="border-l-4 border-indigo-500/50 bg-indigo-50/30 p-4 rounded-md mb-4 shadow-sm">
+                <strong class="text-lg text-indigo-700 block mb-1">Q${i+1}: ${qText}</strong>
+                <p class="text-gray-600 whitespace-pre-wrap mt-2">${a.transcript || '(No transcript recorded/Skipped)'}</p>
+            </div>
+        `;
+    }).join('');
+
+    let logsHtml = '';
+    if (logs.length > 0) {
+        logsHtml += '<strong class="text-red-700 block mb-3 text-lg flex items-center border-b pb-2"><i class="fas fa-bell mr-2 text-red-500"></i> Detailed Proctoring Logs:</strong><ul class="space-y-1 text-sm bg-white p-4 rounded-xl border border-gray-100">';
+        logs.forEach(l => {
+            const severityClass = l.severity === 'error' ? 'text-red-600 font-semibold' : 'text-gray-600';
+            logsHtml += `<li class="${severityClass} border-b border-gray-100 last:border-b-0 py-1">
+                <span class="font-mono text-gray-500 text-xs">${new Date(l.timestamp).toLocaleTimeString()}</span> — 
+                <span class="uppercase font-medium">${l.type}</span>: ${l.detail || ''}
+            </li>`;
+        });
+        logsHtml += '</ul>';
+    } else {
+        logsHtml = '<div class="text-gray-500 italic mt-4">No significant proctoring logs recorded.</div>';
+    }
+
+
+    const content = `
+        <button onclick="renderView('results', '${sessionId}', null, 'list')" class="mb-6 text-primary hover:text-primary-dark font-semibold transition flex items-center group">
+          <i class="fas fa-arrow-left mr-2 group-hover:-translate-x-1 transition-transform"></i> Back to Candidate List
+        </button>
+
+        <h2 class="text-3xl font-bold text-gray-800 mb-2">Transcripts & Logs</h2>
+        <p class="text-gray-600 mb-6">Candidate: <span class="font-semibold">${participant.name || participant.email}</span></p>
+
+        <div class="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50">
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center border-b pb-2"><i class="fas fa-file-lines mr-2 text-primary"></i> Q&A Transcripts</h3>
+            <div class="mb-8">${answersHtml}</div>
+
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center border-b pb-2"><i class="fas fa-user-lock mr-2 text-red-500"></i> Proctoring Activity</h3>
+            ${logsHtml}
+        </div>
+    `;
+
+    document.getElementById('results-area').innerHTML = content;
+}
+
+function showTranscriptLogs(sessionId, participantId) {
+    const pwrap = participantDataCache[participantId];
+    if (!pwrap) { 
+        document.getElementById('results-area').innerHTML = '<div class="text-red-500 italic mt-4">Participant data not found in cache. Please go back and try again.</div>';
+        showToast('Participant data not found!', 'error'); 
+        return; 
+    }
+    
+    renderTranscriptLogs(pwrap.participant, pwrap.proctor_logs, pwrap.answers);
+}
+
+
+function renderCandidateList(data) {
+    const sessionId = data.session._id;
+    const sessionTitle = data.session.title;
+    
+    const headerHtml = `
+        <h2 class="text-4xl font-bold text-gray-800 mb-2">Results: ${sessionTitle}</h2>
+        <p class="text-gray-600 mb-4">Select a candidate below for detailed reports.</p>
+        
+        <div class="flex flex-wrap gap-4 mb-6 p-4 bg-white rounded-xl shadow-inner border border-gray-100">
+            <div>
+                <label for="status-filter" class="block text-xs font-semibold text-gray-600 mb-1">Filter by Status</label>
+                <select id="status-filter" onchange="filterCandidates()" class="p-2 border border-gray-300 rounded-lg text-sm bg-white">
+                    <option value="all">All Candidates</option>
+                    <option value="completed_evaluated">Completed & Evaluated</option>
+                    <option value="in_progress">In Progress / Pending Eval</option>
+                    <option value="not_started">Not Started (Invited)</option>
+                </select>
+            </div>
+             <div>
+                <label for="score-filter" class="block text-xs font-semibold text-gray-600 mb-1">Min. Score (%)</label>
+                <input id="score-filter" type="number" oninput="filterCandidates()" placeholder="e.g., 70" min="0" max="100" class="p-2 w-24 border border-gray-300 rounded-lg text-sm"/>
+            </div>
+        </div>
+        
+        <div id="candidate-list-container">
+        </div>
+    `;
+    
+    document.getElementById('results-area').innerHTML = headerHtml;
+    const container = document.getElementById('candidate-list-container');
+    
+    if (data.participants.length === 0) {
+        container.innerHTML = '<p class="col-span-full text-gray-500 italic text-center py-8">No participants found for this session.</p>';
+        return;
+    }
+
+    data.participants.forEach(pwrap => {
+        // Cache participant data for sub-views
+        participantDataCache[pwrap.participant._id] = pwrap;
+        
+        const p = pwrap.participant;
+        const pId = p._id;
+        const evalStatusDisplay = getEvaluationSummaryScoreHtml(p);
+        
+        const card = document.createElement('div');
+        card.className = 'candidate-item bg-white p-4 rounded-xl shadow-lg border border-gray-100 mb-3 flex justify-between items-center transition-all duration-300 hover:shadow-xl';
+        card.setAttribute('data-pid', pId);
+        
+        card.innerHTML = `
+            <div class="flex items-center space-x-4 flex-1 min-w-0">
+                <span class="w-8 h-8 bg-indigo-500/10 text-indigo-700 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                    <i class="fas fa-user"></i>
+                </span>
+                <div class="min-w-0 flex-1">
+                    <strong class="text-lg font-bold text-gray-800 truncate block">${p.name || 'Anonymous Candidate'}</strong>
+                    <p class="text-sm text-gray-500 truncate">${p.email}</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-4 flex-shrink-0 ml-4">
+                ${evalStatusDisplay}
+                <button onclick="renderView('results', '${sessionId}', '${pId}', 'detailed-evaluation')" 
+                        class="py-2 px-3 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary-dark transition">
+                    <i class="fas fa-clipboard-list mr-1"></i> Scorecard
+                </button>
+                <button onclick="renderView('results', '${sessionId}', '${pId}', 'transcript-logs')" 
+                        class="py-2 px-3 bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg hover:bg-gray-300 transition">
+                    <i class="fas fa-file-lines mr-1"></i> Raw Data
+                </button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+
+async function showResultsDetail(sessionId, participantId, subView) {
+    const area = document.getElementById('results-area');
+    
+    // Only show loading if we are loading the main list or if cache is empty for a sub-view.
+    if (subView === 'list' || (!participantId || !participantDataCache[participantId])) {
+        area.innerHTML = `
+            <div class="bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl border border-white/50">
+                <h3 class="text-3xl font-bold text-gray-800 mb-6 border-b pb-4 flex items-center">
+                    <i class="fas fa-spinner fa-spin mr-3 text-primary"></i> Loading Results...
+                </h3>
+                <p class="text-gray-600">Fetching session details, answers, and logs...</p>
+            </div>
+        `;
+    }
+    
+    // Load questions map only once per session entry
+    if (Object.keys(questionMap).length === 0) {
+      await loadQuestionMap(sessionId); 
+    }
+    
+    try {
+        const data = await apiJSON(`/api/sessions/${sessionId}/results`);
+        
+        // Update the cache with the fresh data
+        data.participants.forEach(pwrap => {
+             participantDataCache[pwrap.participant._id] = pwrap;
+        });
+
+        if (subView === 'list') {
+            renderCandidateList(data);
+            filterCandidates(); // Apply filters immediately upon loading/reloading list
+        } else if (subView === 'detailed-evaluation' && participantId) {
+            showEvaluationDetail(sessionId, participantId);
+        } else if (subView === 'transcript-logs' && participantId) {
+            showTranscriptLogs(sessionId, participantId);
+        } else {
+            // Fallback if subview or participantId is missing/invalid
+            renderCandidateList(data);
+            filterCandidates(); 
+        }
+
+    } catch(e){ 
+        area.innerHTML = `
+            <div class="bg-white/80 p-8 rounded-3xl shadow-xl border border-red-200">
+                 <h3 class="text-3xl font-bold text-red-600 mb-4 border-b pb-4"><i class="fas fa-exclamation-triangle mr-3"></i> Failed to Load Results</h3>
+                 <p class="text-red-500">Error: ${e.message}</p>
+            </div>
+        `;
+        showToast('Failed to load results.', 'error');
+    }
 }
 
 
